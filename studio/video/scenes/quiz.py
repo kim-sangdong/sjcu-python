@@ -170,21 +170,24 @@ class Quiz(CountdownMixin, SceneRenderer):
 
     def _fit_choices(self, v: int, choices: list[str], col_w: int, cols: int, avail: float):
         S = self.g.s
-        sz = S.lead
-        while True:
-            rows = [self._choice(v, i, c, col_w, sz) for i, c in enumerate(choices)]
-            rh = max(r[0].h for r in rows)
-            per = -(-len(choices) // cols)
-            gap = int(sz * 0.32)
-            total = per * rh + (per - 1) * gap
-            if (total <= avail and not any(r[0].meta.get("broke") for r in rows)) or sz <= S.body_min:
+        per = -(-len(choices) // cols)
+        for compact in (False, True):          # 최소 글자로도 넘치면 보기 상자 안팎 여백을 줄인다(보기 5개 가로 화면 등)
+            sz = S.lead
+            while True:
+                rows = [self._choice(v, i, c, col_w, sz, compact=compact) for i, c in enumerate(choices)]
+                rh = max(r[0].h for r in rows)
+                gap = int(sz * (0.14 if compact else 0.32))
+                total = per * rh + (per - 1) * gap
+                if (total <= avail and not any(r[0].meta.get("broke") for r in rows)) or sz <= S.body_min:
+                    break
+                sz -= 2
+            if total <= avail:
                 break
-            sz -= 2
         if total > avail:
-            self.warn("문제·보기가 길어 화면을 넘칩니다 — 보기를 짧게 쓰세요.")
+            self.defect("문제·보기가 길어 화면을 넘칩니다 — 보기를 짧게 쓰세요.")
         for i, r in enumerate(rows):
             if r[0].meta.get("overflow"):
-                self.warn(f"보기 {i + 1} 이 길어 줄였습니다.")
+                self.defect(f"보기 {i + 1} 이 길어 말줄임했습니다 — 보기를 짧게 쓰세요.")
         return rows, rh, gap, total, sz
 
     def _place_choices(self, rows, pos, *, grid: bool, collapse_to: tuple[float, float] | None) -> None:
@@ -308,11 +311,11 @@ class Quiz(CountdownMixin, SceneRenderer):
         self.add(tb, box.x + pad, box.y + pad, show=self.s_q, enter="fade", delay=0.2)
         return h
 
-    def _choice(self, v: int, i: int, text: str, w: int, sz: int) -> tuple[D.Sprite, D.Sprite]:
-        """보기 한 줄의 (보통, 정답 강조) 스프라이트."""
+    def _choice(self, v: int, i: int, text: str, w: int, sz: int, *, compact: bool = False) -> tuple[D.Sprite, D.Sprite]:
+        """보기 한 줄의 (보통, 정답 강조) 스프라이트. compact=True 면 위아래 여백과 번호 원을 줄인다."""
         pal = self.pal
-        bs = int(sz * 1.15)
-        padx, pady, gap = int(sz * 0.42), int(sz * 0.34), int(sz * 0.45)
+        bs = int(sz * (1.0 if compact else 1.15))
+        padx, pady, gap = int(sz * 0.42), int(sz * (0.18 if compact else 0.34)), int(sz * 0.45)
         tw = w - padx * 2 - bs - gap - int(sz * 1.2)
         tb = D.text_block(self.fonts, text, size=sz, max_w=tw, max_lines=3, color=pal.ink, emph=pal.primary)
         tb_c = D.text_block(self.fonts, text, role="bold", size=sz, max_w=tw, max_lines=3, color=pal.ink, emph=pal.primary)
@@ -352,9 +355,9 @@ class Quiz(CountdownMixin, SceneRenderer):
         S, pal = self.g.s, self.pal
         lab = pill(self, "해설", size=int(S.small * 0.9), fill=pal.primary, color=pal.on_primary)
         ov = lab.height // 2
-        from studio.video.scenes.exam import inline_basis_text   # 순환 import 를 피해 여기서
+        from studio.video.scenes.exam import fit_inline_badges, inline_basis_list   # 순환 import 를 피해 여기서
 
-        basis = inline_basis_text(self)
+        n_badges = len(inline_basis_list(self))
         exp = str(self.p["explanation"])
         min_sz = S.body if probe else S.body_min
         sz = S.body
@@ -363,8 +366,10 @@ class Quiz(CountdownMixin, SceneRenderer):
             pad = int(sz * 0.5)
             tb = D.text_block(self.fonts, exp, size=sz, max_w=w - 2 * pad, color=pal.ink, emph=pal.primary, lh=1.32,
                               max_h=max_h, min_size=sz)
-            bb = D.text_block(self.fonts, basis, size=max(S.small, int(sz * 0.8)), max_w=w - 2 * pad,
-                              color=pal.ink2, max_lines=2) if basis else None
+            bsz = max(S.small, int(sz * 0.8))
+            # 배지마다 한 줄(안 들어가면 약칭) — 예전에는 배지들을 한 문자열로 이어 2줄에서 말없이 잘랐다(리허설 2026-W42)
+            bb = D.text_block(self.fonts, fit_inline_badges(self, bsz, w - 2 * pad), size=bsz, max_w=w - 2 * pad,
+                              color=pal.ink2, max_lines=2 * n_badges) if n_badges else None
             card_h = ov + pad * 0.6 + tb.h + ((sz * 0.45 + 2 + sz * 0.3 + bb.h) if bb else 0) + pad
             return pad, tb, bb, card_h
 
@@ -378,7 +383,9 @@ class Quiz(CountdownMixin, SceneRenderer):
                 return None
             fixed = ov + ov + pad * 0.6 + pad + ((sz * 0.45 + 2 + sz * 0.3 + bb.h) if bb else 0)
             pad, tb, bb, card_h = measure(sz, max_h=max(sz * 1.32, avail - fixed))
-            self.warn("해설이 길어 화면에서 잘렸습니다 — 해설을 짧게 쓰고 자세한 설명은 내레이션으로 하세요.")
+            self.defect("해설이 길어 화면에서 잘렸습니다 — 해설을 짧게 쓰고 자세한 설명은 내레이션으로 하세요.")
+        if bb is not None and bb.overflow:
+            self.defect("해설 상자의 근거 배지가 잘렸습니다 — 근거 수를 줄이세요.")
         H = int(card_h)
         im = D.blank(w, H + ov)
         D.paste(im, D.rounded(w, H, int(sz * 0.3), pal.surface, outline=pal.line, width=2), 0, ov)

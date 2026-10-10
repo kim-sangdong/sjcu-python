@@ -1,6 +1,7 @@
 """`python -m studio analytics <하위명령>`.
 
   analytics collect --week W [--sources youtube,instagram,facebook,tiktok,funnel] [--fake] [--dry-run] [--force] [--max-age-hours H]
+                    [--now ISO]   (기준 시각 — 리허설에서 아직 오지 않은 주차를 그 주 안의 시각으로 수집할 때)
       종료 코드: 0 모두 성공 · 2 일부 원천 실패(파일은 씀) · 1 모두 실패 또는 실행 불가
   analytics report  --week W            → reports/W/channel-revenue.md, .csv
   analytics ad-data --week W [--budget N] → reports/W/ad-decision-data.json
@@ -11,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import datetime
 
 from studio import paths
 from studio.analytics.common import ALL_SOURCES, SOURCE_LABEL, current_week, env_dry_run
@@ -21,6 +23,17 @@ def _week(args: argparse.Namespace) -> str:
     week = args.week or current_week()
     paths.week_monday(week)   # 형식 확인
     return week
+
+
+def parse_now(value: str | None) -> datetime | None:
+    """--now ISO 시각(시간대가 없으면 KST). 비우면 None(= 지금). `publish due --now` 와 같은 형식."""
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.strip())
+    except ValueError:
+        raise ValueError(f"--now 형식이 아닙니다: {value!r} (예: 2026-10-19T00:00+09:00)") from None
+    return dt if dt.tzinfo else dt.replace(tzinfo=paths.KST)
 
 
 def _sources(value: str | None) -> list[str]:
@@ -39,6 +52,7 @@ def cmd_collect(args: argparse.Namespace) -> int:
     try:
         week = _week(args)
         sources = _sources(args.sources)
+        now = parse_now(getattr(args, "now", None))
     except ValueError as e:
         print(f"[오류] {e}", file=sys.stderr)
         return 1
@@ -47,7 +61,7 @@ def cmd_collect(args: argparse.Namespace) -> int:
         print(f"{week}: {args.max_age_hours}시간 안에 수집한 metrics.json 이 있어 다시 수집하지 않습니다.")
         return 0
     try:
-        metrics, path = run(week, sources=sources, fake=args.fake, dry_run=dry, force=args.force)
+        metrics, path = run(week, sources=sources, fake=args.fake, dry_run=dry, force=args.force, now=now)
     except (CollectRefused, ValueError, FileNotFoundError) as e:
         print(f"[오류] {e}", file=sys.stderr)
         return 1
@@ -127,6 +141,7 @@ def register(sub: argparse._SubParsersAction) -> None:
     c.add_argument("--dry-run", action="store_true", help="요청을 보내지 않고 보낼 요청만 기록(STUDIO_DRY_RUN=1 과 같음)")
     c.add_argument("--force", action="store_true", help="실제 수집본 위에 합성 데이터를 덮어쓰기")
     c.add_argument("--max-age-hours", type=float, help="이 시간 안에 수집한 결과가 있으면 다시 수집하지 않음")
+    c.add_argument("--now", help="기준 시각(ISO, 시간대 없으면 KST). 기본: 지금. 리허설에서 미래 주차를 수집할 때 쓴다")
     c.set_defaults(func=cmd_collect)
     r = g.add_parser("report", help="주간 매출 보고 → reports/<week>/channel-revenue.md·.csv")
     r.add_argument("--week")

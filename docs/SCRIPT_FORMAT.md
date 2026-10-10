@@ -90,6 +90,10 @@ ID 는 채널별 추적 링크의 `utm_content` 값이 되어, 어떤 콘텐츠�
 실제 렌더러 동작은 `studio/video/scenes/` 가 기준이다. 이 표와 다르면 SCENES.md 와 렌더러 쪽을 따른다.
 
 - 퀴즈·OX·빈칸·계산·순서 장면은 검증된 문제은행 문항에서 가져오고 `params.bank_id` 에 문항 ID 를 적는다(`docs/CONTENT_GUIDE.md` 5장).
+  문항이 여럿이면(빈칸표의 행들) 목록 `["Q-CIV-…", "Q-CIV-…"]`. 카드뉴스 슬라이드도 같은 `params.bank_id` 를 쓴다.
+  `plan validate` 는 없는 문항·verified 가 아닌 문항(교차확인 미완료 포함)·장면 정답과 문항 정답이 다른 경우를 **오류**로 막는다
+  (리허설 `STUDIO_DRY_RUN=1` 에서만 verified 아닌 문항을 경고로 낮춘다). 정답 장면에 `bank_id` 가 없으면 경고.
+- 근거 배지 `params.basis` 는 시행일·선고일이 있어야 한다. 날짜 없는 법령·판례 근거는 `plan validate` 가 오류로 막는다(`docs/SCENES.md` 1장).
 - 영상 quiz 와 문제은행 mcq 의 `answer` 는 **0부터** 센다.
 
 ## CardNews

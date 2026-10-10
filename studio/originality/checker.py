@@ -46,7 +46,10 @@ MIN_REUSE_SENT = 12        # 문장 재사용 판정 최소 길이(정규화 글
 ALIGN_MIN = 0.5            # 문장 n-gram 의 절반 이상이 상대 본문에 있으면 '겹친 문장'
 STRUCTURE_SAME = 0.9       # 결합 신호에서 '골격 같음'
 STRUCTURE_WINDOW = 14      # 골격을 비교할 과거 같은 종류 자산 수(최근 순)
-CONTENT_KINDS = ["quiz", "compare", "sequence", "timeline", "flow", "bars", "bullets", "case", "quote", "text", "image", "voice"]
+# 형식 제안 후보(쇼츠 대표 형식). 시험 대비 장면(docs/SCENES.md 2장)을 앞에 둔다 — CONTENT_GUIDE 3장 쇼츠 형식표의 장면 kind.
+# ranking(앱 데이터 있는 주)·diff(개정이 있는 주)는 아무 때나 고를 수 없어 제안 후보에서 뺀다.
+CONTENT_KINDS = ["ox", "table_blank", "relations", "calc", "quiz", "compare", "sequence", "timeline", "flow", "bars", "bullets",
+                 "case", "quote", "text", "image", "voice"]
 STYLE_HINT = {"longform": "bold·split·card·photo", "short": "bold·block·frame"}
 KIND_PLATFORMS = {"longform": ("youtube", "facebook"), "short": ("youtube", "instagram", "facebook", "tiktok"),
                   "cardnews": ("instagram", "facebook"), "blog": ("tistory",)}
@@ -54,6 +57,13 @@ KIND_PLATFORMS = {"longform": ("youtube", "facebook"), "short": ("youtube", "ins
 # 장면 kind → (이어 쓰는 꼴, 끝맺는 꼴)  — 겹친 문장이 있는 장면에 맞춰 고칠 지시를 만든다
 KIND_ACTIONS: dict[str, tuple[str, str]] = {
     "title": ("첫 문장(훅)을 다른 질문으로 바꾸고", "첫 문장(훅)을 다른 질문으로 바꿀 것"),
+    # 시험 대비 장면(리허설 2026-W43: ox 장면 문장이 과거와 똑같은데 '도입만 바꿀 것' 지시가 나왔다)
+    "ox": ("다른 조문·숫자로 지문과 정답을 새로 내고(문제은행의 다른 문항)", "다른 조문·숫자로 지문과 정답을 새로 낼 것(문제은행의 다른 문항)"),
+    "table_blank": ("표의 행·숫자·빈칸을 다른 조문으로 바꾸고", "표의 행·숫자·빈칸을 다른 조문으로 바꿀 것"),
+    "relations": ("다른 인물 관계·사례로 바꾸고", "다른 인물 관계·사례로 바꿀 것"),
+    "calc": ("다른 조건·수치의 계산 문제로 바꾸고", "다른 조건·수치의 계산 문제로 바꿀 것"),
+    "diff": ("다른 개정 조문으로 바꾸고", "다른 개정 조문으로 바꿀 것"),
+    "ranking": ("다른 집계 기간·항목으로 바꾸고", "다른 집계 기간·항목으로 바꿀 것"),
     "quiz": ("문제·보기·정답 개념을 새로 내고", "문제·보기·정답 개념을 새로 낼 것"),
     "compare": ("비교 대상과 비교 항목을 바꾸고", "비교 대상과 비교 항목을 바꿀 것"),
     "bars": ("다른 수치 자료와 항목으로 바꾸고", "다른 수치 자료와 항목으로 바꿀 것"),

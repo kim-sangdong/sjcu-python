@@ -366,7 +366,7 @@ class Bullets(SceneRenderer):
                 break
             sz -= 2
         if col_h > box.h - head_h:
-            self.warn("항목이 많거나 길어 화면을 넘칩니다 — 항목을 줄이거나 짧게 쓰세요.")
+            self.defect("항목이 많거나 길어 화면을 넘칩니다 — 항목을 줄이거나 짧게 쓰세요.")
         y = vcenter(head_h + col_h, box, 0.42)
         if hb:
             self.add(hb, box.x, y, enter="left")

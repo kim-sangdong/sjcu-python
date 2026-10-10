@@ -67,7 +67,7 @@ class Compare(SceneRenderer):
                 break
             sz -= 2
         if H > box.h:
-            self.warn("비교 행이 많거나 길어 화면을 넘칩니다.")
+            self.defect("비교 행이 많거나 길어 화면을 넘칩니다 — 행을 줄이거나 짧게 쓰세요.")
         H = int(H)
         y0 = vcenter(H, box, 0.42)
         xl, xr = box.x, box.x + col_w + mid
@@ -236,7 +236,7 @@ class Sequence(CountdownMixin, SceneRenderer):
                     break
                 sz -= 2
             if total > box.h:
-                self.warn("카드가 많거나 길어 화면을 넘칩니다.")
+                self.defect("카드가 많거나 길어 화면을 넘칩니다 — 카드를 줄이거나 짧게 쓰세요.")
             y = vcenter(total, box, 0.42)
             x0 = box.x + x_off if (self.g.portrait or grid2) else box.cx - (cw + x_off) / 2 + x_off
             slots = [(x0 + (k % cols) * (cw + u), y + (k // cols) * (ch + gap)) for k in range(m)] if grid2 else \
@@ -302,35 +302,45 @@ class Timeline(SceneRenderer):
             self.add(tb, box.x, box.y, enter="left")
             _, box = box.take_top(tb.h, int(tb.size * 0.7))
         v = self.variant
-        if v == 1 and not self.g.portrait and m <= 5:
+        can_row = not self.g.portrait and m <= 5          # 가로 화면은 사건을 한 줄로 늘어놓을 수 있다
+        if v == 1 and can_row:
             self._horizontal(box, ev, steps)
         elif v == 2:
-            self._ladder(box, ev, steps)
-        else:
-            self._vertical(box, ev, steps, cards=(v == 1))
+            if not self._ladder(box, ev, steps, try_only=can_row):
+                self._horizontal(box, ev, steps)
+        elif not self._vertical(box, ev, steps, cards=(v == 1), try_only=can_row):
+            # 세로 목록이 근거 배지·제목에 밀려 넘치면(리허설 2026-W42: 3개 사건이 근거 배지와 겹침) 가로 배치로 바꾼다
+            self._horizontal(box, ev, steps)
 
-    def _vertical(self, box: Box, ev, steps, cards: bool) -> None:
+    def _vertical(self, box: Box, ev, steps, cards: bool, *, try_only: bool = False) -> bool:
+        """세로 목록. 글자를 최소 크기까지 줄이고, 그래도 넘치면 사건 사이 간격을 좁힌다.
+        try_only=True 면 넘칠 때 아무것도 놓지 않고 False 를 돌려준다(다른 배치로 바꾸라는 뜻)."""
         S, pal = self.g.s, self.pal
         width = box.w if self.g.portrait else int(box.w * 0.84)
-        sz = S.lead
-        while True:
-            dot = int(sz * 0.5)
-            pad = int(sz * 0.36) if cards else 0
-            tx_off = dot + int(sz * 0.8)
-            tw = width - tx_off - 2 * pad
-            gap = sz * (0.32 if cards else 0.7)
-            blocks = []
-            for lab, txt in ev:
-                lb = D.text_block(self.fonts, lab, role="heavy", size=max(S.small, int(sz * 0.82)), color=pal.primary, max_w=tw, max_lines=1)
-                tb = D.text_block(self.fonts, txt, size=sz, max_w=tw, color=pal.ink, emph=pal.primary) if txt else None
-                blocks.append((lb, tb))
-            hs = [int(lb.h + (tb.h if tb else 0) + 2 * pad) for lb, tb in blocks]
-            total = sum(hs) + gap * (len(hs) - 1)
-            if (total <= box.h and not any(tb and tb.broke for _, tb in blocks)) or sz <= S.body_min:
+        for gap_k in ((0.32, 0.7), (0.2, 0.35)):            # (카드, 맨 목록) 간격: 기본 → 좁게
+            sz = S.lead
+            while True:
+                dot = int(sz * 0.5)
+                pad = int(sz * 0.36) if cards else 0
+                tx_off = dot + int(sz * 0.8)
+                tw = width - tx_off - 2 * pad
+                gap = sz * (gap_k[0] if cards else gap_k[1])
+                blocks = []
+                for lab, txt in ev:
+                    lb = D.text_block(self.fonts, lab, role="heavy", size=max(S.small, int(sz * 0.82)), color=pal.primary, max_w=tw, max_lines=1)
+                    tb = D.text_block(self.fonts, txt, size=sz, max_w=tw, color=pal.ink, emph=pal.primary) if txt else None
+                    blocks.append((lb, tb))
+                hs = [int(lb.h + (tb.h if tb else 0) + 2 * pad) for lb, tb in blocks]
+                total = sum(hs) + gap * (len(hs) - 1)
+                if (total <= box.h and not any(tb and tb.broke for _, tb in blocks)) or sz <= S.body_min:
+                    break
+                sz -= 2
+            if total <= box.h:
                 break
-            sz -= 2
         if total > box.h:
-            self.warn("사건이 많거나 길어 화면을 넘칩니다.")
+            if try_only:
+                return False
+            self.defect("사건이 많거나 길어 화면을 넘칩니다 — 사건을 줄이거나 짧게 쓰세요.")
         y = vcenter(total, box, 0.42)
         x0 = box.x if self.g.portrait else box.cx - width / 2
         rail_x = x0 + dot / 2
@@ -352,6 +362,7 @@ class Timeline(SceneRenderer):
                 self.add(tb, tx + pad, y + pad + lb.h, show=s, enter="left" if not cards else "fade", delay=0.5)
             prev_c = cy + dot / 2
             y += h + gap
+        return True
 
     def _horizontal(self, box: Box, ev, steps) -> None:
         S, pal, u = self.g.s, self.pal, self.g.unit
@@ -371,6 +382,8 @@ class Timeline(SceneRenderer):
             if (total <= box.h and not any(tb.broke for _, tb in blocks)) or sz <= S.body_min:
                 break
             sz -= 2
+        if total > box.h:
+            self.defect("사건이 많거나 길어 화면을 넘칩니다 — 사건을 줄이거나 짧게 쓰세요.")
         y = vcenter(total, box, 0.42)
         ly = y + top_h + sz * 0.8 + dot / 2
         lh = max(6, dot // 4)
@@ -384,8 +397,8 @@ class Timeline(SceneRenderer):
             self.add(lb, cx - lb.w / 2, y + top_h - lb.h, show=s, enter="rise", delay=0.35)
             self.add(tb, cx - tb.w / 2, ly + dot / 2 + sz * 0.8, show=s, enter="rise", delay=0.45)
 
-    def _ladder(self, box: Box, ev, steps) -> None:
-        """사다리: 아래에서 위로 한 칸씩 올라간다."""
+    def _ladder(self, box: Box, ev, steps, *, try_only: bool = False) -> bool:
+        """사다리: 아래에서 위로 한 칸씩 올라간다. 넘치면 try_only=True 일 때 False(다른 배치로)."""
         S, pal, u = self.g.s, self.pal, self.g.unit
         m = len(ev)
         shift = int(u * (1.4 if self.g.portrait else 3.0))
@@ -405,6 +418,10 @@ class Timeline(SceneRenderer):
             if (total <= box.h and not any(tb.broke for _, tb in blocks)) or sz <= S.body_min:
                 break
             sz -= 2
+        if total > box.h or any(tb.overflow for _, tb in blocks):
+            if try_only:
+                return False
+            self.defect("사건이 많거나 길어 화면을 넘칩니다 — 사건을 줄이거나 짧게 쓰세요.")
         y = vcenter(total, box, 0.42) + total
         for j, ((lb, tb), h, s) in enumerate(zip(blocks, hs, steps)):
             y -= h
@@ -417,6 +434,7 @@ class Timeline(SceneRenderer):
             D.paste(im, tb.img, lab_w + sz * 0.9 - tb.ox, (h - tb.h) / 2 - tb.oy)
             self.add(D.shadowed(im, blur=10, offset=(0, 5), alpha=0.1), x, y, show=s, enter="rise", delay=0.05)
             y -= gap
+        return True
 
 
 # ---------------------------------------------------------------- flow
@@ -556,7 +574,7 @@ class Flow(SceneRenderer):
                     break
             sz -= 2
         if total > box.h:
-            self.warn("단계가 많거나 길어 화면을 넘칩니다.")
+            self.defect("단계가 많거나 길어 화면을 넘칩니다 — 단계를 줄이거나 짧게 쓰세요.")
         y0 = vcenter(total, box, 0.42) + (nb / 2 if v == 0 else 0)
         x_start = box.x if (cols > 1 or self.g.portrait) else box.cx - bw / 2
         rects = []
@@ -620,7 +638,7 @@ class Flow(SceneRenderer):
                         break
                 sz -= 2
             if total > box.h:
-                self.warn("단계가 많거나 길어 화면을 넘칩니다.")
+                self.defect("단계가 많거나 길어 화면을 넘칩니다 — 단계를 줄이거나 짧게 쓰세요.")
             y = vcenter(total, box, 0.42)
             x0 = box.x if self.g.portrait else box.cx - width / 2
             prev = None
@@ -722,7 +740,7 @@ class Bars(SceneRenderer):
                 break
             sz -= 2
         if total > box.h - head_h:
-            self.warn("막대가 많아 화면을 넘칩니다.")
+            self.defect("막대가 많아 화면을 넘칩니다 — 항목을 줄이세요.")
         y = vcenter(head_h + total, box, 0.42)
         if tb_title:
             self.add(tb_title, box.x, y, enter="left")

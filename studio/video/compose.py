@@ -40,7 +40,7 @@ from studio.video import design as D
 from studio.video import media
 from studio.video import tts as T
 from studio.video.design import Fonts, Geometry, Palette
-from studio.video.scenes import FIRST_LEAD_SECONDS, LEAD_SECONDS, Beat, SceneContext, SceneRenderer, get_renderer
+from studio.video.scenes import FIRST_LEAD_SECONDS, LEAD_SECONDS, Beat, LayoutError, SceneContext, SceneRenderer, get_renderer
 from studio.video.subtitles import CaptionPainter, Cue, sentence_cues, write_srt
 
 log = logging.getLogger("studio.video.compose")
@@ -61,6 +61,7 @@ class RenderOptions:
     threads: int = 2                # 세그먼트당 x264 스레드
     keep_work: bool = False
     preview: bool = False           # 장면별 미리보기 PNG(out/.../preview/)
+    allow_overflow: bool = False    # True 면 화면 넘침·말줄임(LayoutError)을 경고로만 남기고 계속 렌더(사람이 미리보기로 확인할 때만)
     log: Callable[[str], None] = print
 
 
@@ -365,6 +366,12 @@ class VideoBuilder:
                 self.warnings += r.warnings
                 prev = (r.kind, r.variant)
                 i += 1
+        defects = [d for r in self.renderers for d in r.defects]
+        if defects and not self.opts.allow_overflow:
+            for r in self.renderers:
+                r.release()
+            raise LayoutError("화면에 글이 다 들어가지 않습니다(잘린 채 발행하지 않도록 렌더를 멈춤) — 원고를 짧게 고친 뒤 다시 렌더하세요:\n  - "
+                              + "\n  - ".join(defects))
 
     # 2. 소리
     def synthesize(self) -> dict[tuple[int, int], tuple[Path, float]]:

@@ -1,7 +1,10 @@
 """영상 렌더 명령.
 
   python -m studio render video --week 2026-W42 [--only ID ...] [--kind longform|short] [--tts silent]
-                                [--jobs N] [--preview] [--keep-work] [--dry-run]
+                                [--jobs N] [--preview] [--keep-work] [--dry-run] [--allow-overflow]
+
+화면에 글이 다 들어가지 않으면(말줄임·잘림·영역 넘침) 그 편은 인코딩 전에 오류로 멈추고 종료 코드 1 을 낸다.
+잘린 지문·보기가 그대로 발행되지 않게 하려는 것 — 오류 메시지의 장면·글을 짧게 고쳐 다시 렌더한다.
 
 원고: content/weeks/<week>/longform/<id>.json, shorts/<id>.json (VideoScript)
 결과: out/weeks/<week>/<id>/video.mp4, thumbnail.png|cover.png, subtitles.srt, timeline.json (+ manifest 기록)
@@ -57,7 +60,8 @@ def cmd_video(args: argparse.Namespace) -> int:
         missing = set(args.only) - {p.stem for p in scripts}
         for m in sorted(missing):
             print(f"[경고] {m}: 원고 파일을 찾지 못했습니다.", file=sys.stderr)
-    opts = RenderOptions(tts=args.tts, dry_run=is_dry_run(args), jobs=args.jobs, keep_work=args.keep_work, preview=args.preview)
+    opts = RenderOptions(tts=args.tts, dry_run=is_dry_run(args), jobs=args.jobs, keep_work=args.keep_work, preview=args.preview,
+                         allow_overflow=args.allow_overflow)
     failed = 0
     t_all = time.time()
     for p in scripts:
@@ -104,4 +108,6 @@ def register(sub: argparse._SubParsersAction) -> None:
     p.add_argument("--preview", action="store_true", help="장면별 미리보기 PNG 저장(<id>/preview/)")
     p.add_argument("--keep-work", action="store_true", help="중간 파일(_work/) 남기기")
     p.add_argument("--dry-run", action="store_true", help="TTS 요청을 보내지 않고 무음으로 렌더")
+    p.add_argument("--allow-overflow", action="store_true",
+                   help="화면 넘침·말줄임을 오류 대신 경고로(미리보기로 원인을 볼 때만 — weekly build 는 쓰지 않는다)")
     p.set_defaults(func=cmd_video)

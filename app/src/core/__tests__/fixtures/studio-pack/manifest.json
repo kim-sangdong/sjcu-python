@@ -1,0 +1,153 @@
+{
+ "kind": "manifest",
+ "schema_version": 1,
+ "version": "20261010-52009e22",
+ "content_hash": "52009e22bd0f5191a0ae9ca15bb92275ebaa95e3d5ef98c4f08a3b789df2ab56",
+ "generated_at": "2026-10-10T22:13:50+09:00",
+ "exam": {
+  "name": "공인중개사",
+  "round": 37,
+  "next_exam_date": "2026-10-31",
+  "papers": [
+   {
+    "name": "부동산학개론",
+    "stage": 1,
+    "subjects": [
+     "RE"
+    ],
+    "questions": 40
+   },
+   {
+    "name": "민법 및 민사특별법",
+    "stage": 1,
+    "subjects": [
+     "CIV"
+    ],
+    "questions": 40
+   },
+   {
+    "name": "공인중개사법령 및 중개실무",
+    "stage": 2,
+    "subjects": [
+     "BRK"
+    ],
+    "questions": 40
+   },
+   {
+    "name": "부동산공법",
+    "stage": 2,
+    "subjects": [
+     "PUB"
+    ],
+    "questions": 40
+   },
+   {
+    "name": "부동산공시법령 및 부동산세법",
+    "stage": 2,
+    "subjects": [
+     "REG",
+     "TAX"
+    ],
+    "questions": 40
+   }
+  ]
+ },
+ "disclaimer": "※ 한국산업인력공단·큐넷과 무관한 비공식 학습 채널입니다. 법령은 화면에 표시한 시행일 기준이며, 개별 사안은 대한법률구조공단(132) 또는 변호사와 상담하세요.",
+ "free_daily": 20,
+ "total": 39,
+ "subjects": [
+  {
+   "code": "RE",
+   "name": "부동산학개론",
+   "file": "RE.json",
+   "count": 6,
+   "sha256": "b7f54d0c14d9525d58f0bec2c73f250c5d64bafca9d60876eb6a557416193182",
+   "bytes": 6860
+  },
+  {
+   "code": "CIV",
+   "name": "민법 및 민사특별법",
+   "file": "CIV.json",
+   "count": 7,
+   "sha256": "68e767f55a0e5e74c99bfe16d55afcdef853f4e9ef6674f97e0dea7c8ea8c0c9",
+   "bytes": 7126
+  },
+  {
+   "code": "BRK",
+   "name": "공인중개사법령 및 중개실무",
+   "file": "BRK.json",
+   "count": 7,
+   "sha256": "d62ca375aa44402c7dbe66351bad6fccc84abf3bc3147240ce0f88c0ca787f00",
+   "bytes": 6948
+  },
+  {
+   "code": "PUB",
+   "name": "부동산공법",
+   "file": "PUB.json",
+   "count": 6,
+   "sha256": "8e4473146344dbc6239c7e1c766b4a226f7795932d4d11918f812e79bb683154",
+   "bytes": 6063
+  },
+  {
+   "code": "REG",
+   "name": "부동산공시법령",
+   "file": "REG.json",
+   "count": 7,
+   "sha256": "e840ff49bf0d022b5b962df85b9ca2f891294fd0a65d599aaa75ca295d8620eb",
+   "bytes": 6340
+  },
+  {
+   "code": "TAX",
+   "name": "부동산세법",
+   "file": "TAX.json",
+   "count": 6,
+   "sha256": "18e0545b2297eee3534aced40fe18c711bb4dcebf8f29a0bd19f1ae9d6d3af81",
+   "bytes": 5659
+  }
+ ],
+ "free_ids": [
+  "Q-BRK-38e00438",
+  "Q-BRK-496fe70f",
+  "Q-CIV-6e829908",
+  "Q-CIV-b2bee68f",
+  "Q-PUB-17c8d3e1",
+  "Q-RE-3d673aff",
+  "Q-RE-5d8715ca",
+  "Q-REG-a52fa7ed",
+  "Q-TAX-1ca6a8c5"
+ ],
+ "decks": [
+  {
+   "asset_id": "2026W42-L1",
+   "week": "2026-W42",
+   "kind": "longform",
+   "items": [
+    "Q-PUB-f4c2fb0b"
+   ]
+  },
+  {
+   "asset_id": "2026W42-S01",
+   "week": "2026-W42",
+   "kind": "short",
+   "items": [
+    "Q-PUB-f4c2fb0b"
+   ]
+  },
+  {
+   "asset_id": "2026W42-S02",
+   "week": "2026-W42",
+   "kind": "short",
+   "items": [
+    "Q-TAX-acc8802d"
+   ]
+  },
+  {
+   "asset_id": "2026W42-S03",
+   "week": "2026-W42",
+   "kind": "short",
+   "items": [
+    "Q-REG-c824b3ed"
+   ]
+  }
+ ]
+}

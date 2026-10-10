@@ -72,6 +72,7 @@ class Slide:
     answer: int | None = None                          # 0부터
     texts: dict[str, str] = field(default_factory=dict)
     logo: Path | None = None
+    bottom: float = BOTTOM     # 본문 영역 끝 — 근거 배지(params.basis)가 있으면 draw_slide 가 배지 높이만큼 올린다
 
 
 def slide_variant(card_id: str, kind: str, n: int = 3) -> int:
@@ -296,8 +297,8 @@ def body_0(s: Slide) -> Canvas:
     w = W - 2 * M
     title = _fit_title(cv, s, s.title, w, 340)
     head = 112 + title.height + 90
-    body = _fit_body(cv, s, s.body, w, BOTTOM - TOP - head)
-    y = TOP + _slack(BOTTOM - TOP - head - body.height, 0.38)
+    body = _fit_body(cv, s, s.body, w, s.bottom - TOP - head)
+    y = TOP + _slack(s.bottom - TOP - head - body.height, 0.38)
     cv.label(f"{s.seq:02d}", M, y + 36, font=b.font_bold, size=72, fill=b.accent, anchor="lm")
     y = cv.put(title, M, y + 112, w, color=b.text, emph_color=b.primary)
     cv.rect((M, y + 28, M + 90, y + 38), fill=b.primary)
@@ -313,9 +314,9 @@ def body_1(s: Slide) -> Canvas:
     cv.rect((0, 0, 28, H), fill=b.primary)
     w, pad, gap = W - 2 * M, 56, 50
     title = _fit_title(cv, s, s.title, w, 340)
-    body = _fit_body(cv, s, s.body, w - 2 * pad, BOTTOM - TOP - title.height - gap - 2 * pad)
+    body = _fit_body(cv, s, s.body, w - 2 * pad, s.bottom - TOP - title.height - gap - 2 * pad)
     total = title.height + gap + body.height + 2 * pad
-    y = TOP + _slack(BOTTOM - TOP - total, 0.38)
+    y = TOP + _slack(s.bottom - TOP - total, 0.38)
     y = cv.put(title, M, y, w, color=b.primary, emph_color=b.text) + gap
     cv.rect((M, y, W - M, y + body.height + 2 * pad), fill=b.white, radius=36)
     cv.put(body, M + pad, y + pad, w - 2 * pad, color=b.text, emph_color=b.primary)
@@ -335,8 +336,8 @@ def body_2(s: Slide) -> Canvas:
     cv.label(f"{s.seq:02d}", W - M + 10, head_h - 34, font=b.font_bold, size=200, fill=mix(b.primary_soft, b.primary, 0.22), anchor="rs")
     cv.put(title, M, TOP + 40, tw, color=b.text, emph_color=b.primary)
     top = head_h + 70
-    body = _fit_body(cv, s, s.body, w - 40, BOTTOM - top)
-    y = top + _slack(BOTTOM - top - body.height, 0.3)
+    body = _fit_body(cv, s, s.body, w - 40, s.bottom - top)
+    y = top + _slack(s.bottom - top - body.height, 0.3)
     cv.rect((M, y + 12, M + 10, y + max(body.height, 60) - 12), fill=b.accent, radius=5)
     cv.put(body, M + 40, y, w - 40, color=b.text, emph_color=b.primary)
     _chrome(cv, s, top_bg=b.primary_soft)
@@ -354,8 +355,8 @@ def list_0(s: Slide) -> Canvas:
     title = _fit_title(cv, s, s.title, w, 300)
     tx, tw, gap, mi = M + 108, W - 2 * M - 108, 46, 76
     head = title.height + 100
-    blocks = _fit_group(cv, items, font=b.font_medium, emph_font=b.font_bold, sz=ITEM, width=tw, max_height=BOTTOM - TOP - head, gap=gap, min_item=mi)
-    y = TOP + _slack(BOTTOM - TOP - head - _group_height(blocks, gap=gap, min_item=mi), 0.38)
+    blocks = _fit_group(cv, items, font=b.font_medium, emph_font=b.font_bold, sz=ITEM, width=tw, max_height=s.bottom - TOP - head, gap=gap, min_item=mi)
+    y = TOP + _slack(s.bottom - TOP - head - _group_height(blocks, gap=gap, min_item=mi), 0.38)
     y = cv.put(title, M, y, w, color=b.text, emph_color=b.primary)
     cv.rect((M, y + 28, M + 90, y + 38), fill=b.primary)
     y += 100
@@ -377,8 +378,8 @@ def list_1(s: Slide) -> Canvas:
     title = _fit_title(cv, s, s.title, w, 300)
     tx, tw, gap, mi = M + 104, W - 2 * M - 104, 66, 68
     head = title.height + 76
-    blocks = _fit_group(cv, items, font=b.font_regular, emph_font=b.font_bold, sz=ITEM, width=tw, max_height=BOTTOM - TOP - head, gap=gap, min_item=mi)
-    y = TOP + _slack(BOTTOM - TOP - head - _group_height(blocks, gap=gap, min_item=mi), 0.38)
+    blocks = _fit_group(cv, items, font=b.font_regular, emph_font=b.font_bold, sz=ITEM, width=tw, max_height=s.bottom - TOP - head, gap=gap, min_item=mi)
+    y = TOP + _slack(s.bottom - TOP - head - _group_height(blocks, gap=gap, min_item=mi), 0.38)
     y = cv.put(title, M, y, w, color=b.primary, emph_color=b.text) + 76
     for i, bl in enumerate(blocks):
         cy = y + max(_mid1(bl), mi / 2)
@@ -403,8 +404,8 @@ def list_2(s: Slide) -> Canvas:
     pad, label_w, gap, mi = 34, 92, 22, 116
     tw = W - 2 * M - 2 * pad - label_w
     head = title.height + 60
-    blocks = _fit_group(cv, items, font=b.font_medium, emph_font=b.font_bold, sz=ITEM, width=tw, max_height=BOTTOM - TOP - head, gap=gap, pad=2 * pad, min_item=mi)
-    y = TOP + _slack(BOTTOM - TOP - head - _group_height(blocks, gap=gap, pad=2 * pad, min_item=mi), 0.38)
+    blocks = _fit_group(cv, items, font=b.font_medium, emph_font=b.font_bold, sz=ITEM, width=tw, max_height=s.bottom - TOP - head, gap=gap, pad=2 * pad, min_item=mi)
+    y = TOP + _slack(s.bottom - TOP - head - _group_height(blocks, gap=gap, pad=2 * pad, min_item=mi), 0.38)
     y = cv.put(title, M, y, w, color=b.text, emph_color=b.primary) + 60
     for i, bl in enumerate(blocks):
         hh = max(bl.height + 2 * pad, mi)
@@ -540,9 +541,9 @@ def quiz_0(s: Slide) -> Canvas:
     b = s.brand
     cv = Canvas(W, H, b.bg)
     head, gap = 136, 52
-    q, sub, ch = _fit_quiz(cv, s, W - 2 * M, BOTTOM - TOP - head, gap, _stack_fit)
+    q, sub, ch = _fit_quiz(cv, s, W - 2 * M, s.bottom - TOP - head, gap, _stack_fit)
     qh = q.height + (20 + sub.height if sub else 0)
-    y = TOP + _slack(BOTTOM - TOP - head - qh - gap - ch.height, 0.4)
+    y = TOP + _slack(s.bottom - TOP - head - qh - gap - ch.height, 0.4)
     cv.label("Q.", M - 4, y + 52, font=b.font_bold, size=116, fill=b.primary, anchor="lm")
     y = _put_question(cv, q, sub, y + head, color=b.text, emph=b.primary, sub_color=b.text_soft)
     _stack_draw(cv, s, y + gap, ch, style=0)
@@ -556,14 +557,14 @@ def quiz_1(s: Slide) -> Canvas:
     b = s.brand
     cv = Canvas(W, H, b.bg)
     q_top, band_pad, gap = TOP + 96, 66, 56
-    q, sub, ch = _fit_quiz(cv, s, W - 2 * M, BOTTOM - q_top - band_pad, band_pad + gap, _stack_fit)
+    q, sub, ch = _fit_quiz(cv, s, W - 2 * M, s.bottom - q_top - band_pad, band_pad + gap, _stack_fit)
     qh = q.height + (20 + sub.height if sub else 0)
     head_h = q_top + qh + band_pad
     cv.rect((0, 0, W, head_h), fill=b.primary)
     cv.label(s.texts.get("quiz_label_en", "QUIZ"), M, TOP + 36, font=b.font_bold, size=40, fill=b.accent, anchor="lm")
     _put_question(cv, q, sub, q_top, color=b.on_primary, emph=b.accent, sub_color=mix(b.bg, b.primary, 0.2))
     top = head_h + gap
-    _stack_draw(cv, s, top + _slack(BOTTOM - top - ch.height, 0.3), ch, style=1)
+    _stack_draw(cv, s, top + _slack(s.bottom - top - ch.height, 0.3), ch, style=1)
     _chrome(cv, s, top_bg=b.primary, dark_top=True)
     _answer_hint(cv, s, b.text_soft)
     return cv
@@ -583,9 +584,9 @@ def quiz_2(s: Slide) -> Canvas:
                 pass
         return _stack_fit(c, sl, avail, sz)
 
-    q, sub, ch = _fit_quiz(cv, s, W - 2 * M, BOTTOM - TOP - head, gap, fit_choices)
+    q, sub, ch = _fit_quiz(cv, s, W - 2 * M, s.bottom - TOP - head, gap, fit_choices)
     qh = q.height + (20 + sub.height if sub else 0)
-    y = TOP + _slack(BOTTOM - TOP - head - qh - gap - ch.height, 0.4)
+    y = TOP + _slack(s.bottom - TOP - head - qh - gap - ch.height, 0.4)
     cv.pill(s.texts.get("quiz_label", "퀴즈"), M, y, font=b.font_bold, size=34, fill=b.primary, color=b.on_primary)
     y = _put_question(cv, q, sub, y + head, color=b.text, emph=b.primary, sub_color=b.text_soft) + gap
     if ch.grid:
@@ -630,8 +631,8 @@ def answer_0(s: Slide) -> Canvas:
         tw = w - 2 * r - 44
         ch = _fit_title(cv, s, s.choices[s.answer] if s.choices else "", tw, 270, sz=sizes(68, 40, 2), label="정답 선택지")
         head += max(2 * r, ch.height) + 106
-    t, body, eh = _fit_explain(cv, s, BOTTOM - TOP - head)
-    y = TOP + _slack(BOTTOM - TOP - head - eh, 0.38)
+    t, body, eh = _fit_explain(cv, s, s.bottom - TOP - head)
+    y = TOP + _slack(s.bottom - TOP - head - eh, 0.38)
     cv.pill(s.texts.get("answer_label", "정답"), M, y, font=b.font_bold, size=36, fill=b.primary, color=b.on_primary)
     y += 112
     if ch is not None and s.answer is not None:
@@ -660,8 +661,8 @@ def answer_1(s: Slide) -> Canvas:
     cv.label(s.texts.get("answer_label", "정답"), M, TOP + 34, font=b.font_bold, size=40, fill=b.accent, anchor="lm")
     cv.put(ch, M, TOP + 96, w, color=b.on_primary, emph_color=b.accent)
     top = head_h + 72
-    t, body, eh = _fit_explain(cv, s, BOTTOM - top)
-    _put_explain(cv, s, t, body, top + _slack(BOTTOM - top - eh, 0.3), color=b.text, emph=b.primary, title_color=b.primary)
+    t, body, eh = _fit_explain(cv, s, s.bottom - top)
+    _put_explain(cv, s, t, body, top + _slack(s.bottom - top - eh, 0.3), color=b.text, emph=b.primary, title_color=b.primary)
     _chrome(cv, s, top_bg=b.primary, dark_top=True)
     return cv
 
@@ -675,11 +676,11 @@ def answer_2(s: Slide) -> Canvas:
     pad, nw, gap, mi = (22, 86, 14, 86) if len(s.choices) <= 4 else (18, 86, 12, 78)
     tw = W - 2 * M - 2 * pad - nw
     head = 96
-    room = BOTTOM - TOP - head - 44 - 300   # 해설 자리 300px 이상 남긴다
+    room = s.bottom - TOP - head - 44 - 300   # 해설 자리 300px 이상 남긴다
     blocks = _fit_group(cv, s.choices, font=b.font_medium, emph_font=b.font_bold, sz=sizes(42, 30, 2), width=tw, max_height=room, gap=gap, pad=2 * pad, min_item=mi, label="선택지")
     chh = _group_height(blocks, gap=gap, pad=2 * pad, min_item=mi)
-    t, body, eh = _fit_explain(cv, s, BOTTOM - TOP - head - chh - 44, sz=sizes(48, 32, 2))
-    y = TOP + _slack(BOTTOM - TOP - head - chh - 44 - eh, 0.38)
+    t, body, eh = _fit_explain(cv, s, s.bottom - TOP - head - chh - 44, sz=sizes(48, 32, 2))
+    y = TOP + _slack(s.bottom - TOP - head - chh - 44 - eh, 0.38)
     cv.label(s.texts.get("answer_label", "정답"), M, y + 26, font=b.font_bold, size=48, fill=b.primary, anchor="lm")
     y += head
     faded = mix(b.text, b.bg, 0.55)
@@ -814,8 +815,31 @@ LAYOUTS: dict[str, list[Callable[[Slide], Canvas]]] = {
 }
 
 
-def draw_slide(s: Slide) -> Canvas:
-    from studio.cardnews.exam import special_layout   # OX·숫자 표 장(params 로 고르는 레이아웃)
+BASIS_GAP = 34          # 본문과 근거 배지 사이
 
-    fn = special_layout(s) or LAYOUTS[s.kind][s.variant % len(LAYOUTS[s.kind])]
-    return fn(s)
+
+def draw_slide(s: Slide) -> Canvas:
+    """kind·변형 레이아웃으로 그린다. params.basis(근거 배지)는 모든 본문 장에 그린다.
+
+    OX·숫자 표 장(exam.special_layout)은 배지 자리를 스스로 잡는다. 그 밖의 body·list·quiz·answer 장은 본문 영역 끝(s.bottom)을
+    배지 높이만큼 올려 그린 뒤 아래에 배지를 붙인다(예전에는 표 없는 body 장의 basis 를 말없이 버렸다 — 리허설 2026-W42).
+    표지·cta 장은 근거를 다는 자리가 아니므로 basis 가 있으면 오류로 알린다.
+    """
+    # OX·숫자 표 장(params 로 고르는 레이아웃)
+    from studio.cardnews.exam import basis_height, draw_basis, special_layout
+
+    special = special_layout(s)
+    if special is not None:
+        return special(s)
+    fn = LAYOUTS[s.kind][s.variant % len(LAYOUTS[s.kind])]
+    if not s.params.get("basis"):
+        return fn(s)
+    if s.kind in ("cover", "cta"):
+        raise CardRenderError(f"{s.index}장({s.kind}): 표지·마무리 장에는 근거 배지(params.basis)를 달 수 없습니다 — "
+                              "숫자·요건이 나오는 본문·퀴즈·정답 장으로 옮기세요.")
+    bh = basis_height(Canvas(W, H, s.brand.bg), s)
+    s.bottom = BOTTOM - (bh + BASIS_GAP if bh else 0)
+    cv = fn(s)
+    if bh:
+        draw_basis(cv, s, BOTTOM)
+    return cv

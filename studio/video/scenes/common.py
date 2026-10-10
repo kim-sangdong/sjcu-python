@@ -99,10 +99,10 @@ def fit_blocks(r, texts: list[str], *, max_w: int, max_h: float, size: int, min_
         # 최소 크기로도 넘치면 각 상자 높이를 나눠 말줄임
         share = max(sz * 1.3, (max_h - extra_h - gap * sz * max(0, len(texts) - 1)) / max(1, len(texts)))
         blocks = [D.text_block(r.fonts, t, size=sz, max_w=max_w, max_h=share, min_size=sz, **kw) for t in texts]
-        r.warn("글이 길어 화면에 다 들어가지 않습니다 — 항목 수나 글자 수를 줄이세요.")
+        r.defect("글이 길어 화면에 다 들어가지 않습니다 — 항목 수나 글자 수를 줄이세요.")
     for b, t in zip(blocks, texts):
         if b.overflow:
-            r.warn(f"글자가 넘쳐 줄였습니다: '{D.strip_emphasis(t)[:24]}…'")
+            r.defect(f"글자가 넘쳐 말줄임했습니다: '{D.strip_emphasis(t)[:24]}…' — 원고를 짧게 고치세요.")
     return blocks
 
 

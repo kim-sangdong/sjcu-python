@@ -105,7 +105,8 @@ allowed-tools: Bash(python -m studio *) Bash(python3 -m studio *) Bash(python -m
 
 ## 6. 콘텐츠에 쓰기 · 앱 팩
 
-- 원고에는 `python -m studio bank list --ready --unused --subject <과목> --json` 으로 고른 문항만 쓴다. 장면 `params.bank_id` 에 id, `params.basis` 에 `badges[0]`. 발행 뒤 `python -m studio bank mark-used --asset <콘텐츠 ID> --items <Q-…> …`.
+- 원고에는 `python -m studio bank list --ready --unused --subject <과목> --json` 으로 고른 문항만 쓴다. 장면 `params.bank_id` 에 id(여러 문항이면 목록), `params.basis` 에 `badges[0]`. 발행 기록(`bank mark-used`)은 실제 `weekly ship` 이 원고의 `bank_id` 를 모아 대신 한다(손으로 쓴 콘텐츠만 직접 `python -m studio bank mark-used --asset <콘텐츠 ID> --items <Q-…> …`).
+- `bank upload` 는 0문항 팩을 거부한다(올리면 앱의 문항이 비게 된다). 검증·교차확인 통과 문항이 생긴 뒤 export → upload 한다.
 - 주 1회(검증·교차확인이 끝난 뒤): `python -m studio bank export` → `python -m studio bank upload`(리허설은 `--dry-run`). 앱 팩에는 verified + 교차확인 통과 문항만 들어간다.
 
 ## 7. 보고

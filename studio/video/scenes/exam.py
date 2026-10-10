@@ -149,6 +149,15 @@ def basis_problems(value: Any) -> list[str]:
     out: list[str] = []
     for b in _as_list(value):
         if isinstance(b, str):
+            # 문자열 근거도 법령 조문·판례를 가리키면 시행일·선고일이 있어야 한다(CONTENT_GUIDE 7장 1번).
+            # 예전에는 '[부동산 실권리자명의 등기에 관한 법률 제4조 제2항]' 처럼 날짜 없는 글이 경고 없이 화면에 나갔다(리허설 2026-W43).
+            t = b.strip()
+            dated = re.search(r"\d{4}\s*[.\-]\s*\d{1,2}\s*[.\-]\s*\d{1,2}\.?\s*(시행|선고|결정)", t)
+            if re.search(r"제\s*\d+\s*조|별표\s*\d", t) and not dated:
+                out.append(f"근거 '{t[:40]}' 에 시행일이 없습니다 — '[법령명 제○조 · YYYY.M.D 시행 기준]' 또는 "
+                           "{law_name, article, effective_date} 로 쓰세요.")
+            elif re.search(r"\d{2,4}\s*[가-힣]{1,3}\s*\d{1,6}\b", t) and re.search(r"대법원|헌법재판소|판결|선고|결정|\d{2,4}(다|두|도|헌)", t) and not dated:
+                out.append(f"근거 '{t[:40]}' 에 선고일이 없습니다 — '[대법원 사건번호 · YYYY.M.D 선고]' 또는 {{case_no, decided_at}} 로 쓰세요.")
             continue
         if not isinstance(b, dict):
             out.append(f"근거 {b!r} 를 알아보지 못했습니다 — 문자열이나 {{law_name, article, effective_date}} 로 쓰세요.")
@@ -238,7 +247,7 @@ def basis_sprite(r: SceneRenderer, texts: list[str], max_w: int) -> Sprite:
             tb = D.text_block(r.fonts, badge_markup(cands[-1][0], split=True), role="bold", size=size, min_size=int(size * 0.86),
                               color=pal.ink2, emph=pal.primary, max_w=inner, max_lines=3, lh=1.28)
             if tb.overflow:
-                r.warn(f"근거 배지가 길어 줄였습니다: '{t[:30]}…'")
+                r.defect(f"근거 배지가 길어 말줄임했습니다: '{t[:30]}…' — 근거를 줄이거나 나누세요.")
         blocks.append(tb)
     lg = int(size * 0.22)
     w = max(b.w for b in blocks) + 2 * padx + bar + gap_bar
@@ -272,14 +281,33 @@ def basis_strip(r: SceneRenderer) -> Sprite | None:
     return sp
 
 
-def inline_basis_text(r: SceneRenderer) -> str:
-    """장면이 자기 상자 안에 근거를 쓸 때(quiz 해설 등) 쓸 배지 글. 문제는 경고로 남긴다(한 번만)."""
-    if "_basis_inline_text" not in r.__dict__:
+def inline_basis_list(r: SceneRenderer) -> list[str]:
+    """장면이 자기 상자 안에 근거를 쓸 때(quiz 해설 등) 쓸 배지 글 목록(최대 3개). 문제는 경고로 남긴다(한 번만)."""
+    if "_basis_inline_list" not in r.__dict__:
         raw = r.p.get("basis")
         for msg in basis_problems(raw):
             r.warn(msg)
-        r.__dict__["_basis_inline_text"] = " ".join(basis_badges(raw))
-    return r.__dict__["_basis_inline_text"]
+        r.__dict__["_basis_inline_list"] = basis_badges(raw)[:3]
+    return r.__dict__["_basis_inline_list"]
+
+
+def inline_basis_text(r: SceneRenderer) -> str:
+    return " ".join(inline_basis_list(r))
+
+
+def fit_inline_badges(r: SceneRenderer, size: int, max_w: int) -> str:
+    """상자 안 근거 배지: 배지마다 한 줄 — 정식 명칭이 한 줄에 안 들어가면 법제처 약칭(본문 아래 띠 배지와 같은 규칙)."""
+    out = []
+    for t in inline_basis_list(r):
+        if D.measure_lines(r.fonts, t, "regular", size, max_w) <= 1:
+            out.append(t)
+            continue
+        short = shorten_badge(t)
+        if D.measure_lines(r.fonts, short, "regular", size, max_w) <= 1:
+            out.append(short)
+        else:   # 약칭으로도 길면 ' · ' 뒤에서 나눈다('시행 / 기준]' 처럼 날짜 중간에서 갈리지 않게)
+            out.append(short.replace(" · ", " ·\n", 1))
+    return "\n".join(out)
 
 
 def place_basis(r: SceneRenderer, show: int = 0, *, delay: float = 0.45) -> Item | None:
@@ -473,6 +501,9 @@ def note_card(r: SceneRenderer, text: str, w: int, max_h: float, *, label: str =
     avail = max(sz * 1.4, max_h - ov - 2 * pad - (ov if lab else 0))
     tb = r.text(text, size=sz, min_size=min(sz, S.body_min), max_w=tw, max_h=avail, lh=1.36, color=pal.ink, emph=pal.primary)
     H = int(tb.h + 2 * pad + (ov if lab else 0))
+    if H + ov > max_h + 2:
+        # 한 줄도 못 넣을 만큼 자리가 좁으면 상자가 아래 요소(근거 배지 등)를 덮는다 — 리허설 2026-W42 S01 해설 상자
+        r.defect(f"{label or '상자'} 자리가 모자라 아래 요소와 겹칩니다 — 지문·{label or '글'}을 짧게 쓰거나 hook 을 빼세요.")
     im = D.blank(w, H + ov)
     D.paste(im, D.rounded(w, H, int(sz * 0.3), pal.surface, outline=pal.line, width=2), 0, ov)
     D.paste(im, D.rounded(bar, max(6, H - 2 * pad), bar // 2, accent or pal.accent), pad * 0.5, ov + pad)
@@ -642,6 +673,9 @@ class OX(CountdownMixin, SceneRenderer):
         ring = int(S.h1 * (1.75 if portrait else 2.4))
         res_h = self._result_pill().h
         area_h = {0: max(cd_h, res_h), 1: cd_h + u + tile_h, 2: ring if portrait else ring + u + res_h}[v]
+        if portrait and self.explanation:
+            # 해설 상자는 공개 뒤 타이머·결과 자리를 대신 쓴다 — 그 자리가 해설 한 상자보다 작으면 지문 카드를 줄여 자리를 만든다
+            area_h = max(area_h, note_card(self, self.explanation, box.w, 10 ** 6, label="해설").h)
         gap_area = int(u * 1.2)
         card_col = rest if portrait else rest.split_x(0.6, int(u * 2.5))[0]
         card_max = (rest.h - area_h - gap_area) if portrait else rest.h
@@ -819,7 +853,10 @@ class OX(CountdownMixin, SceneRenderer):
         if not self.explanation or show is None:
             return
         avail = area.b - y
-        if replace is not None and avail < self.g.s.body * 2.6:
+        need = note_card(self, self.explanation, area.w, 10 ** 6, label="해설").h      # 해설 상자 실제 높이(글자 그대로)
+        if replace is not None and avail < need:
+            # 아래 남은 자리에 해설 상자가 다 안 들어가면 결과·타이머 자리를 비우고 거기에 놓는다
+            # (예전 기준 '본문 글자 2.6줄'은 상자 높이보다 작아 해설이 근거 배지를 덮었다 — 리허설 2026-W43 S01)
             for it in replace:
                 it.keys[show] = Key(alpha=0.0, dur=0.3)
             y, avail = area.y, area.h
@@ -1022,7 +1059,7 @@ class TableBlank(SceneRenderer):
                 break
             sz -= 2
         if total > box.h:
-            self.warn("표가 커서 화면을 넘칩니다 — 행이나 칸 글을 줄이세요(세로는 6행 안팎 권장).")
+            self.defect("표가 커서 화면을 넘칩니다 — 행이나 칸 글을 줄이세요(세로는 6행 안팎 권장).")
         elif sz < S.body_min:
             self.warn(f"표가 커서 칸 글자를 {sz}px 로 줄였습니다 — 행 수를 줄이면 더 크게 보입니다.")
         x0 = box.x if (self.g.portrait or title) else box.x + (box.w - table_w) / 2
@@ -1084,8 +1121,10 @@ class TableBlank(SceneRenderer):
                     chh = int(min(rh - pady * 0.6, max(cl.h + pady * 0.4, sz * 1.3)))
                     chip_xy = (x + (w - cw_) / 2, y + (rh - chh) / 2)
                     self.chip_boxes[k] = Box(int(chip_xy[0]), int(chip_xy[1]), cw_, chh)
+                    # '?' 칩은 채우는 단계에서 사라진 뒤 다시 나오면 안 된다 — 강조 단계의 흐림(alpha 0.35) 키를 붙이면
+                    # 키가 단계 순서로 덮어써져 채운 값 위에 '?' 가 다시 비친다(리허설 2026-W42 '40%? 이하').
                     self.add(q_chip(self, cw_, chh), *chip_xy, show=st, enter="pop", delay=d0 + 0.08 * c, z=3,
-                             keys={fs: Key(alpha=0.0, dur=0.25), **dim_keys()})
+                             keys={fs: Key(alpha=0.0, dur=0.25)})
                     flash = D.plain(D.rounded(cw_, chh, int(chh * 0.3), D.rgba(pal.accent_soft, 0.9)))
                     self.add(flash, *chip_xy, show=fs, enter="fade", delay=0.05, dur=0.3, z=2, keys=dim_keys())
                     self.add(cl, cx_, cy_, show=fs, enter="pop", delay=0.2, dur=0.45, z=4, keys=dim_keys())
@@ -1477,7 +1516,10 @@ class Calc(SceneRenderer):
             rows, steps_h, ok = self._steps(steps, left.w, box.h - cond_sp.h - bars_h_est - 2 * gap, v, quiet=True)
             if not ok:
                 collapse = True
-                rows, steps_h, _ = self._steps(steps, left.w, min(box.h - cond_sp.h - gap, box.h - bars_h_est - gap), v)
+                # 접은 뒤 막대 자리는 가장 촘촘한 막대 높이로 잡는다(_place_bars 가 그만큼 줄여 그린다)
+                bars_min = self._bars_height(bars_items, right.w, compact=True)
+                # (막대 자리는 수식 마지막 줄 뒤 줄 간격만큼 더 밀리므로 그만큼 빼 둔다)
+                rows, steps_h, _ = self._steps(steps, left.w, min(box.h - cond_sp.h - gap, box.h - bars_min - gap - int(S.lead * 0.5)), v)
         else:
             rows, steps_h, _ = self._steps(steps, left.w, left.h - cond_sp.h - gap, v)
         if portrait:
@@ -1530,6 +1572,8 @@ class Calc(SceneRenderer):
             sz -= 2
         if H + ov > max_h:
             self.warn("조건이 많거나 길어 카드가 큽니다 — 조건을 줄이세요.")
+        if any(t.overflow for t in tbs):
+            self.defect("조건 글이 길어 말줄임했습니다(조건 한 줄은 2줄까지) — 조건을 짧게 쓰세요.")
         fill = pal.primary if dark else (pal.surface if v == 0 else pal.primary_soft)
         im = D.blank(w, H + ov)
         D.paste(im, D.rounded(w, H, u, fill, outline=pal.line if v == 0 else None, width=2 if v == 0 else 0), 0, ov)
@@ -1560,7 +1604,7 @@ class Calc(SceneRenderer):
                 break
             sz -= 2
         if not fits and not quiet:
-            self.warn("수식 단계가 많거나 길어 화면을 넘칩니다 — 단계를 줄이거나 짧게 쓰세요.")
+            self.defect("수식 단계가 많거나 길어 화면을 넘칩니다 — 단계를 줄이거나 짧게 쓰세요.")
         out = []
         for k, (t, h) in enumerate(zip(tbs, hs)):
             ind = indent(k)
@@ -1594,13 +1638,17 @@ class Calc(SceneRenderer):
         vsz = S.body
         return S.small, vsz, int(vsz * 0.8), int(vsz * 0.35)
 
-    def _bars_height(self, items, w: int) -> int:
+    # 막대 줄 치수 단계(이름표 줄 높이, 막대 두께, 줄 간격 — 글자 크기 배수). 자리가 모자라면 뒤 단계로 줄인다.
+    BAR_STEPS = ((1.36, 0.8, 0.35), (1.28, 0.66, 0.2), (1.22, 0.56, 0.12))
+
+    def _bars_height(self, items, w: int, *, compact: bool = False) -> int:
         S, u = self.g.s, self.g.unit
         if len(items) == 1:
             return int(S.hero * 1.36 + S.body * 1.92 + u * 3.0)
-        lsz, vsz, bar_h, gapr = self._bar_dims()
-        row = int(lsz * 1.36) + int(vsz * 0.15) + bar_h
-        return row * len(items) + gapr * (len(items) - 1)
+        lsz, vsz, _, _ = self._bar_dims()
+        lab_k, bar_k, gap_k = self.BAR_STEPS[-1 if compact else 0]
+        row = int(lsz * lab_k) + int(vsz * 0.15) + int(vsz * bar_k)
+        return row * len(items) + int(vsz * gap_k) * (len(items) - 1)
 
     def _place_bars(self, items, area: Box, unit: str) -> None:
         S, pal, u = self.g.s, self.pal, self.g.unit
@@ -1626,18 +1674,23 @@ class Calc(SceneRenderer):
         for label, val, text, ok in items:
             lb = D.text_block(self.fonts, label, role="bold", size=lsz, max_w=area.w, max_lines=1, color=pal.correct if ok else pal.ink2)
             if lb.overflow:
-                self.warn(f"오답 이름표 '{label[:20]}…' 가 길어 줄였습니다.")
+                self.defect(f"오답 이름표 '{label[:20]}…' 가 길어 말줄임했습니다 — 짧게 쓰세요.")
             rows.append((lb, val, text, ok))
-        row_h = [int(lsz * 1.36) + int(vsz * 0.15) + bar_h for _ in rows]
-        total = sum(row_h) + gapr * (len(rows) - 1)
+        # 막대 줄이 자리를 넘으면 막대 두께·줄 간격을 줄여 맞춘다(오답 3개 + 세로 쇼츠 — 리허설 2026-W42 S02)
+        for lab_k, bar_k, gap_k in self.BAR_STEPS:
+            lab_h, bar_h, gapr = int(lsz * lab_k), int(vsz * bar_k), int(vsz * gap_k)
+            row_h = [lab_h + int(vsz * 0.15) + bar_h for _ in rows]
+            total = sum(row_h) + gapr * (len(rows) - 1)
+            if total <= area.h + 2:
+                break
         if total > area.h + 2:
-            self.warn("정답·오답 막대가 화면을 넘칩니다 — 오답을 줄이거나 수식 단계를 줄이세요.")
+            self.defect("정답·오답 막대가 화면을 넘칩니다 — 오답을 줄이거나 수식 단계를 줄이세요.")
         y = vcenter(total, area, 0.35)
         bar_area = area.w - val_w - int(u * 0.6)
         for k, ((lb, val, text, ok), rh) in enumerate(zip(rows, row_h)):
             d0 = 0.15 + 0.3 * k
             self.add(lb, area.x, y, show=st, enter="fade", delay=d0, z=2)
-            by = y + int(lsz * 1.36) + int(vsz * 0.15)
+            by = y + lab_h + int(vsz * 0.15)
             bw = max(int(bar_h * 0.8), int(bar_area * abs(val) / vmax))
             col = pal.correct if ok else D.mix(pal.muted, pal.bg, 0.1)
             self.add(D.plain(D.rounded(bw, bar_h, bar_h // 3, col)), area.x, by, show=st, enter="wipe", delay=d0 + 0.1, dur=0.75, z=2)
@@ -1765,7 +1818,7 @@ class Diff(SceneRenderer):
                 side, ok = True, True
                 arrow, cw, sz, b0, a0 = rest
         if not ok:
-            self.warn("조문이 길어 화면을 넘칩니다 — 바뀐 부분 앞뒤만 짧게 인용하세요.")
+            self.defect("조문이 길어 화면을 넘칩니다 — 바뀐 부분 앞뒤만 짧게 인용하세요.")
         b1 = self._card(b_lab, b_mark, cw, sz, old=True, marked=True) if self.changed else b0
         a1 = self._card(a_lab, a_mark, cw, sz, old=False, marked=True) if self.changed else a0
         s_b, s_a = self.step_of["before"], self.step_of["after"]
@@ -1972,7 +2025,7 @@ class Ranking(SceneRenderer):
                 break
             sz -= 2
         if total > area.h:
-            self.warn("항목이 많거나 길어 화면을 넘칩니다 — 항목을 5개 안팎으로 줄이세요.")
+            self.defect("항목이 많거나 길어 화면을 넘칩니다 — 항목을 5개 안팎으로 줄이세요.")
         yy = vcenter(total, area, 0.38)
         vsz = int(sz * 1.05)
         val_w = int(max(self.fonts.get("heavy", vsz).getlength(fmt_num(val, unit)) for _, val, _ in items) + u)

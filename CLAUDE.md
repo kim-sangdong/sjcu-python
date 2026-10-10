@@ -27,5 +27,6 @@
 3. 독창성 검사(`check originality`)가 차단한 콘텐츠는 발행하지 않는다. 검사 기준을 느슨하게 바꿔서 통과시키지 않는다.
 4. 숫자 보고는 `analytics` 명령이 계산한 값만 쓴다. 직접 계산하지 않는다.
 5. 비밀값(토큰·키)을 파일에 쓰거나 출력하지 않는다. `.env` 와 `.secrets/` 는 커밋하지 않는다.
-6. 리허설은 `STUDIO_DRY_RUN=1` 과 `--tts silent` 로 한다(실제 업로드·유료 음성 합성 없음).
+6. 리허설은 `STUDIO_DRY_RUN=1` 과 `--tts silent` 로 한다(실제 업로드·유료 음성 합성 없음). 아직 오지 않은 시각을 흉내 낼 때는
+   `publish due --now <ISO>`·`analytics collect --now <ISO>`. 설정 빈칸(티스토리 blog_name·app.link_base)은 `python -m studio doctor` 가 알려 준다.
 7. 테스트: `python -m pytest`.

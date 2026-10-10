@@ -409,6 +409,7 @@ def icon_mic(size: int, color: RGB | RGBA) -> Image.Image:
 
 _EMPH = re.compile(r"\*\*(.+?)\*\*")
 NO_LINE_START = set(".,!?)]}」』》〉…·:;%~’”'\"")
+SOFT_BREAK_AFTER = set("·/~,")       # 줄보다 긴 어절을 이 글자 뒤에서 먼저 나눈다(띄어쓰기 없는 나열)
 
 
 def parse_emphasis(text: str) -> tuple[str, list[bool]]:
@@ -443,7 +444,20 @@ def wrap_spans(text: str, font: ImageFont.FreeTypeFont, max_w: float) -> list[tu
         if not para.strip():
             lines.append((base, base))
             continue
-        words = [(m.start() + base, m.end() + base) for m in re.finditer(r"\S+", para)]
+        words = []
+        for m in re.finditer(r"\S+", para):
+            ws, we = m.start() + base, m.end() + base
+            # 줄보다 긴 어절은 가운뎃점·빗금·물결·쉼표 뒤에서 먼저 나눈다(예: 도시·관리·농림·자연환경보전지역으로
+            # 를 '…지역으/로' 처럼 글자 중간에서 자르지 않게 — 리허설 2026-W42 퀴즈 해설)
+            if font.getlength(text[ws:we]) > max_w:
+                s0 = ws
+                for k in range(ws, we - 1):
+                    if text[k] in SOFT_BREAK_AFTER:
+                        words.append((s0, k + 1))
+                        s0 = k + 1
+                words.append((s0, we))
+            else:
+                words.append((ws, we))
         cur: tuple[int, int] | None = None
         for ws, we in words:
             if cur is not None and font.getlength(text[cur[0]:we]) <= max_w:
@@ -499,7 +513,8 @@ class TextBlock(Sprite):
 
 
 def _broke(text: str, spans: list[tuple[int, int]]) -> bool:
-    return any(e < len(text) and text[e] not in " \n" and e > s for s, e in spans[:-1])
+    """어절 중간에서 끊긴 줄이 있는가(가운뎃점·빗금 등 뒤에서 나눈 것은 끊긴 것으로 보지 않는다)."""
+    return any(e < len(text) and text[e] not in " \n" and e > s and text[e - 1] not in SOFT_BREAK_AFTER for s, e in spans[:-1])
 
 
 def text_block(

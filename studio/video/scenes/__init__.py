@@ -44,6 +44,14 @@ class SceneError(ValueError):
     pass
 
 
+class LayoutError(SceneError):
+    """화면에 글이 다 들어가지 않음(말줄임·잘림·영역 넘침). 원고를 짧게 고쳐야 한다.
+
+    렌더러는 장면을 만들 때 넘침을 SceneRenderer.defect() 로 모으고, 합성기(compose)는 인코딩 전에 이 오류로 멈춘다
+    (RenderOptions.allow_overflow=True 면 경고로만 남긴다). 잘린 지문·보기가 그대로 발행되지 않게 하려는 것이다.
+    """
+
+
 def scene(name: str) -> Callable[[type["SceneRenderer"]], type["SceneRenderer"]]:
     def deco(cls: type["SceneRenderer"]) -> type["SceneRenderer"]:
         cls.kind = name
@@ -174,6 +182,7 @@ class SceneRenderer:
         self.n = len(scene.narration)
         self.items: list[Item] = []
         self.warnings: list[str] = []
+        self.defects: list[str] = []       # 화면 넘침·말줄임(warnings 에도 들어간다) — 합성기가 LayoutError 로 멈춘다
         self.validate()
         self.variant = self.choose_variant()
         self.transition = str(self.p.get("transition") or ("xfade" if D.pick(5, ctx.asset_id, scene.id, "tr") else "cut"))
@@ -231,6 +240,11 @@ class SceneRenderer:
     def warn(self, msg: str) -> None:
         self.warnings.append(f"장면 {self.scene.id}({self.kind}): {msg}")
 
+    def defect(self, msg: str) -> None:
+        """글이 잘리거나 화면 영역을 넘침 — 경고로 남기고 렌더를 멈출 사유로도 모은다(LayoutError)."""
+        self.warn(msg)
+        self.defects.append(self.warnings[-1])
+
     def add(self, sp: Sprite, x: float, y: float, *, show: int = 0, hide: int | None = None, enter: str = "rise",
             delay: float = 0.0, dur: float = 0.5, z: int = 0, name: str = "", keys: dict[int, Key] | None = None) -> Item:
         it = Item(sp, x, y, show=show, hide=hide, enter=enter, delay=delay, dur=dur, z=z, name=name, keys=keys or {})
@@ -242,7 +256,7 @@ class SceneRenderer:
         tb = D.text_block(self.fonts, text, role=role, size=size or self.g.s.body, color=color or self.pal.ink,
                           max_w=max_w or self.g.content.w, **kw)
         if tb.overflow:
-            self.warn(f"글자가 넘쳐 줄였습니다: '{D.strip_emphasis(text)[:24]}…' — 원고를 짧게 고치세요.")
+            self.defect(f"글자가 넘쳐 말줄임했습니다: '{D.strip_emphasis(text)[:24]}…' — 원고를 짧게 고치세요.")
         return tb
 
     def max_step(self) -> int:

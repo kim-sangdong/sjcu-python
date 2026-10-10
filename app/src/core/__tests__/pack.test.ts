@@ -259,6 +259,22 @@ describe('팩 적재·갱신', () => {
     expect(disk.size).toBe(0);
   });
 
+  test('원격 팩이 0문항이면 지금 팩(시드 포함)을 유지하고 캐시도 바꾸지 않음', async () => {
+    // studio 리허설 2026-W42: 검증 문항 없이 export 한 빈 팩이 latest/ 에 올라가면 앱 문항이 모두 사라질 수 있었다
+    const seed = loadSeed({
+      manifest: makeRemote('seed', { civil: [item('c1', 'civil')] }).manifest,
+      files: { 'subjects/civil.json': { items: [item('c1', 'civil')] } },
+    });
+    const empty = makeRemote('v-empty', { civil: [], tax: [] });
+    const { io, disk } = memoryIO(empty);
+    const r = await checkForUpdate(io, { manifestUrl: BASE, appVersion: '1.0.0', current: seed, bust: '1' });
+    expect(r.status).toBe('error');
+    expect(disk.size).toBe(0);
+    // 지금 팩이 없으면(첫 실행) 빈 팩도 받아 둔다 — 비교할 것이 없으므로
+    const first = await checkForUpdate(memoryIO(empty).io, { manifestUrl: BASE, appVersion: '1.0.0', current: null, bust: '1' });
+    expect(first.status).toBe('updated');
+  });
+
   test('min_app_version 이 더 높으면 incompatible', async () => {
     const remote = makeRemote('v9', { civil: [item('c1', 'civil')] }, { min_app_version: '2.0.0' });
     const { io } = memoryIO(remote);

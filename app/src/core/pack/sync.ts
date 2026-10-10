@@ -201,6 +201,12 @@ export async function checkForUpdate(io: PackIO, opts: UpdateOptions): Promise<U
       files.push({ path: `v/${dir}/${s.file}`, bytes });
     }
 
+    // 받은 팩이 비어 있으면(0문항 — 검증 문항이 없는 채로 내보낸 팩 등) 지금 쓰는 팩을 그대로 둔다.
+    // 그대로 바꾸면 사용자가 풀던 문항이 모두 사라진다(studio 리허설 2026-W42 에서 빈 팩 업로드 경로 확인).
+    const remoteCount = lists.reduce((n, l) => n + l.length, 0);
+    if (remoteCount === 0 && current && current.items.length > 0)
+      return { status: 'error', error: '원격 팩이 비어 있어(0문항) 지금 팩을 유지합니다' };
+
     for (const f of files) await io.writeFile(f.path, f.bytes);
     await io.writeFile(`v/${dir}/manifest.json`, mb);
     await io.writeFile(POINTER, io.encodeUtf8(JSON.stringify({ version: remote.version, dir })));

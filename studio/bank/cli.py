@@ -467,7 +467,7 @@ def cmd_upload(args: argparse.Namespace) -> int:
     if not d.is_absolute():
         d = paths.ROOT / d
     try:
-        version, items = plan(d)
+        version, items = plan(d, allow_empty=args.allow_empty)
     except (UploadError, ValueError) as e:
         return _err(str(e))
     bucket = cfg.storage.bucket
@@ -672,6 +672,7 @@ def register(sub: argparse._SubParsersAction) -> None:
     p = g.add_parser("upload", help="팩을 Supabase Storage 에 올리기")
     p.add_argument("--dir", default="out/bank")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--allow-empty", action="store_true", help="0문항 팩도 올리기(앱 문항이 비게 된다 — 보통 쓰지 않는다)")
     p.set_defaults(func=cmd_upload)
 
     p = g.add_parser("watch-laws", help="인용 법령 개정 감지 → retired")

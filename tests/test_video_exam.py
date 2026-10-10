@@ -240,7 +240,8 @@ def test_quiz_keeps_basis_inside_explanation_in_badge_format(cfg, fonts, monkeyp
     params = {"question": "결격사유는?", "choices": ["가", "나"], "answer": 0, "explanation": "해설", "basis": BASIS}
     r = get_renderer("quiz")(Scene(id="q", kind="quiz", narration=["문제", "정답은 1번"], params=params, hold_seconds=3),
                              _ctx(cfg, fonts, PORTRAIT))
-    assert "[공인중개사법 제33조 제1항 · 2026.1.1 시행 기준]" in seen
+    # 해설 상자 폭에 한 줄로 안 들어가면 ' · ' 뒤에서 나눈다(배지 글 자체는 같은 형식 — 2026-W42 리허설 수정)
+    assert "[공인중개사법 제33조 제1항 · 2026.1.1 시행 기준]" in [t.replace(" ·\n", " · ") for t in seen]
     assert not [it for it in r.items if it.name == "basis"] and r.content() == r.g.content
 
 

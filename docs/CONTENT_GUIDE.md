@@ -32,7 +32,7 @@
 | 3 | 기간 타임라인 | `timeline` → `quiz` | 1 |
 | 4 | 절차 흐름도 | `flow`(hidden) | 1 |
 | 5 | 순서 맞추기 | `sequence` | 1 |
-| 6 | 판례 관계도 | `relations` | 2 |
+| 6 | 판례 관계도 | `relations` (판례가 없으면 조문 사례도 된다 — 근거 배지는 그 조문) | 2 |
 | 7 | 계산 단계 | `calc` | 1 |
 | 8 | 혼동 쌍 비교표 | `compare` | 1 |
 | 9 | 개정 전후 비교 | `diff` | 개정이 있는 주에 1번·2번을 대체 |
@@ -59,8 +59,9 @@ ISO 주 번호를 4로 나눈 나머지로 고른다: 1 → A, 2 → B, 3 → C,
 
 ## 5. 문제은행이 먼저다
 
-- 퀴즈·OX·빈칸·계산·순서 장면의 정답과 근거는 **검증된 문제은행 문항(status=verified)** 에서만 가져온다. 장면 `params.bank_id` 에 문항 ID 를 적는다.
-- 주간 순서: `/question-bank` 절차로 신규 문항 생성 → `python -m studio bank verify` → 통과 문항으로 원고 작성 → 발행 후 `python -m studio bank mark-used`.
+- 퀴즈·OX·빈칸·계산·순서 장면의 정답과 근거는 **검증된 문제은행 문항(status=verified)** 에서만 가져온다. 장면 `params.bank_id` 에 문항 ID 를 적는다(여러 문항이면 목록).
+  `plan validate` 가 이를 강제한다. 예외는 리허설(`STUDIO_DRY_RUN=1`)뿐 — 법령 API 키가 없는 환경에서 draft 문항으로 파이프라인을 시험할 때이며, 실행 보고서에 적고 발행하지 않는다.
+- 주간 순서: `/question-bank` 절차로 신규 문항 생성 → `python -m studio bank verify` → 통과 문항으로 원고 작성 → 발행(`weekly ship` 이 원고의 `bank_id` 로 `bank mark-used` 까지 기록).
 - 문항을 만들 때는 법령 원문을 먼저 받아(`python -m studio bank law ...`) 보면서 쓴다. 기억에 의존하지 않는다.
 - 판례는 사건번호·선고일이 확인되는 것만 쓴다.
 

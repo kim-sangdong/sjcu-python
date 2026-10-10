@@ -48,13 +48,17 @@ def env_dry_run() -> bool:
     return os.environ.get("STUDIO_DRY_RUN", "").strip().lower() in ("1", "true", "yes")
 
 
-def plan(pack_dir: Path, prefix: str = "bank") -> tuple[str, list[PlannedUpload]]:
+def plan(pack_dir: Path, prefix: str = "bank", *, allow_empty: bool = False) -> tuple[str, list[PlannedUpload]]:
     mp = pack_dir / "manifest.json"
     if not mp.exists():
         raise UploadError(f"{mp} 가 없습니다. 먼저 `python -m studio bank export` 를 실행하세요.")
     manifest = json.loads(mp.read_text(encoding="utf-8"))
     validate(manifest, "#/$defs/manifest")
     version = manifest["version"]
+    if not manifest.get("total") and not allow_empty:
+        # 빈 팩을 latest/ 에 올리면 앱이 받아서 지금 쓰는 문항(시드·캐시)을 0문항으로 바꾼다 — 리허설 2026-W42 에서 확인
+        raise UploadError("팩이 비어 있습니다(0문항) — 올리면 앱의 문항이 모두 사라집니다. verify·crosscheck 로 문항을 통과시킨 뒤 "
+                          "다시 export 하세요(정말 비운 팩을 올려야 하면 --allow-empty).")
     subjects: list[PlannedUpload] = []
     for s in manifest["subjects"]:
         p = pack_dir / s["file"]
