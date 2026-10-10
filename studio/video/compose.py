@@ -294,7 +294,7 @@ def build_narration(tbeats: list[TBeat], total_frames: int, fps: int, out: Path)
 
 def _loudnorm_measure(inputs: list[str], graph: str) -> dict | None:
     res = subprocess.run([media.FFMPEG, "-hide_banner", "-nostdin", "-y", *inputs, "-filter_complex",
-                          graph + f",loudnorm=print_format=json[o]", "-map", "[o]", "-f", "null", "-"],
+                          graph + ",loudnorm=print_format=json[o]", "-map", "[o]", "-f", "null", "-"],
                          capture_output=True)
     txt = res.stderr.decode("utf-8", "replace")
     s, e = txt.rfind("{"), txt.rfind("}")

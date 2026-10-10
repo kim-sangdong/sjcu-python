@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 from studio.video import design as D
-from studio.video.design import Box
 from studio.video.scenes import Key, SceneRenderer, make_background, scene
 from studio.video.scenes.common import badge, card, fit_blocks, header, hrow, pill, split_parts, vcenter
 

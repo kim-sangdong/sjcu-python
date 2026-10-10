@@ -161,7 +161,6 @@ class Voice(SceneRenderer):
         label = str(self.p.get("label") or "직접 녹음")
         box = header(self, C)
         # 라벨(마이크 아이콘 + 글)
-        ic = int(S.small * 1.1)
         lab = pill(self, label, size=S.small, fill=pal.primary, color=pal.on_primary)
         mic = D.ellipse(lab.height, lab.height, pal.accent)
         D.paste(mic, D.icon_mic(int(lab.height * 0.7), pal.ink), lab.height * 0.15, lab.height * 0.15)

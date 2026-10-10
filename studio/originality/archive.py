@@ -26,7 +26,8 @@ PARAMS = {
                 "perm": "((a*h+b) mod 2^61-1) & 0xffffffff", "text": "본문(틀 장면·고정 문구 제외) 정규화"},
     "minhash_num": "minhash 와 같고 숫자 덩어리를 0 으로",
     "desc_minhash": {"num_perm": T.DESC_NUM_PERM, "ngram": T.SHINGLE_N},
-    "phrase_hash": "sha1(정규화·숫자→0 문장)[:8]",
+    "phrase_hashes": "고정 문구 후보(틀 장면 문장 + 첫·끝 문장) sha1(정규화·숫자→0 문장)[:8]",
+    "sentence_hashes": "모든 문장(정규화 6자 이상) 같은 해시 — 문장 재사용 비교",
     "phash_bits": 256,
 }
 
@@ -92,7 +93,8 @@ def upsert(index: dict, entry: dict) -> None:
 
 def entry_from(doc: Doc, tx: TextFx, vis: VisFx | None, th: Thresholds) -> dict:
     """아카이브 지문 한 개."""
-    phrases = list(dict.fromkeys(h for h, n in zip(tx.hashes, tx.norm) if len(n) >= MIN_SENT))[:MAX_PHRASES]
+    sentences = list(dict.fromkeys(h for h, n in zip(tx.hashes, tx.norm) if len(n) >= MIN_SENT))[:MAX_PHRASES]
+    phrases = [h for h in dict.fromkeys(tx.hashes) if h in tx.candidates]
     frames: list[str] = []
     if vis and vis.frames and vis.frames.hexes:
         hexes = vis.frames.hexes
@@ -115,6 +117,7 @@ def entry_from(doc: Doc, tx: TextFx, vis: VisFx | None, th: Thresholds) -> dict:
         "minhash_num": tx.mh_num,
         "desc_minhash": tx.desc_mh if tx.desc_len >= 20 else None,
         "phrase_hashes": phrases,
+        "sentence_hashes": sentences,
         "thumb_phash": vis.thumb.hex if vis and vis.thumb else None,
         "thumb_edge_phash": vis.thumb.edge_hex if vis and vis.thumb else None,
         "frame_phashes": frames,

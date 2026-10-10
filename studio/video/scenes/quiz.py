@@ -4,7 +4,7 @@ params: question, choices[2~5], answer(0부터), explanation, basis?(근거 표�
         reveal_line?(정답 공개를 시작하는 narration 번호)
 
 narration 단계 배분(문장 수 N, 정답 공개 문장 R):
-  R = reveal_line → 없으면 '정답'이 처음 나오는 문장(1번 이후) → 없으면 (N+1)//2 (N≥2) → N≤1 이면 없음
+  R = reveal_line → 없으면 '정답'이 처음 나오는 문장(1번 이후) → 없으면 1 (N≥2, 문제 읽기 1 + 해설 권장형) → N≤1 이면 없음
   문장 0          문제(+보기, 공개 전 문장이 1개뿐이면 같이)
   문장 1..R-1     보기(시차를 두고 하나씩)
   카운트다운       countdown 초 동안 막대·숫자가 줄어든다(효과음 째깍). 내레이션 없음
@@ -26,7 +26,7 @@ from studio.video import design as D
 from studio.video import media
 from studio.video.design import Box
 from studio.video.scenes import Beat, Key, SceneError, SceneRenderer, scene
-from studio.video.scenes.common import badge, card, header, pill
+from studio.video.scenes.common import badge, card, pill
 
 DEFAULT_COUNTDOWN = 5.0
 REVEAL_SECONDS = 2.2
@@ -114,7 +114,7 @@ class Quiz(CountdownMixin, SceneRenderer):
         if not (isinstance(R, int) and 1 <= R < N):
             R = next((i for i, s in enumerate(self.scene.narration) if i >= 1 and "정답" in s), None)
             if R is None and N >= 2:
-                R = (N + 1) // 2
+                R = 1          # docs/SCRIPT_FORMAT.md 권장형: 문제 읽기 1문장 + 해설 문장들
         self.R = R
         self.pre = R if R is not None else N
         self.s_q = 0
@@ -168,7 +168,7 @@ class Quiz(CountdownMixin, SceneRenderer):
             self._build_landscape()
 
     def _fit_choices(self, v: int, choices: list[str], col_w: int, cols: int, avail: float):
-        S, u = self.g.s, self.g.unit
+        S = self.g.s
         sz = S.lead
         while True:
             rows = [self._choice(v, i, c, col_w, sz) for i, c in enumerate(choices)]
@@ -259,7 +259,6 @@ class Quiz(CountdownMixin, SceneRenderer):
         col_w = (left.w - u) // 2 if grid else left.w
         rows, rh, gap, total, sz = self._fit_choices(v, choices, col_w, cols, left.h)
         y0 = left.y + max(0, (left.h - total) * 0.25)
-        per = -(-len(choices) // cols)
         pos = [(left.x + (i % cols) * (col_w + u), y0 + (i // cols) * (rh + gap)) if grid else (left.x, y0 + i * (rh + gap))
                for i in range(len(choices))]
         self.cd_style = "bar" if v == 2 else "ring"
@@ -310,7 +309,7 @@ class Quiz(CountdownMixin, SceneRenderer):
 
     def _choice(self, v: int, i: int, text: str, w: int, sz: int) -> tuple[D.Sprite, D.Sprite]:
         """보기 한 줄의 (보통, 정답 강조) 스프라이트."""
-        pal, u = self.pal, self.g.unit
+        pal = self.pal
         bs = int(sz * 1.15)
         padx, pady, gap = int(sz * 0.42), int(sz * 0.34), int(sz * 0.45)
         tw = w - padx * 2 - bs - gap - int(sz * 1.2)

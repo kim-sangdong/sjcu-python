@@ -181,7 +181,7 @@ OPTIONS: dict[str, Any] = {
     "min_freeze_seconds": 2.0,         # 정지 비율에 넣을 최소 정지 길이(ffmpeg freezedetect 기본 d=2 와 같게)
     "longform_max_frames": 120,        # 롱폼 프레임 pHash 표본 상한
     "archive_max_frames": 60,          # 아카이브에 남길 프레임 pHash 상한
-    "body_exclude_kinds": ["title", "chapter", "cta", "outro"],  # 본문 유사도에서 뺄 틀 장면(카드: cover·cta)
+    "body_exclude_kinds": ["title", "chapter", "cta", "outro", "cover"],  # 본문 유사도·대표 형식에서 뺄 틀 장면(카드뉴스는 cover·cta)
     "frame_exclude_kinds": ["cta", "outro"],                     # 화면 재사용에서 뺄 장면(브랜드 끝 화면)
     "format_families": {},             # 형식 묶기 {"flow": "steps", "timeline": "steps"} — 비우면 kind 그대로
     "disclosure_words": ["AI", "인공지능", "합성", "TTS", "생성형"],
@@ -209,7 +209,7 @@ class Thresholds:
             return OFF
         if metric == "voice_scenes" and self.opt("require_voice") and rule.warn_at is not None:
             rule = Rule(None, rule.warn_at, rule.cmp)
-        if metric == "voice_seconds" and self.opt("require_voice") and rule.warn_at is not None:
+        if metric in ("voice_seconds", "voice_week") and self.opt("require_voice") and rule.warn_at is not None:
             rule = Rule(None, rule.warn_at, rule.cmp)
         if metric in self.overrides:
             rule = _apply(rule, self.overrides[metric], kind)

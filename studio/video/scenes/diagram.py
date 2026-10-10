@@ -3,7 +3,7 @@
 단계 배분(문장 수 N, 요소 수 M): 기본은 문장마다 요소 하나(spread). 문장이 요소보다 많으면 첫 문장은 도입(제목만).
   compare   행 단위 공개
   sequence  문장 0..S-1: 섞인 카드 → (countdown 이 있으면 생각할 시간) → 문장 S: 정렬 애니메이션(카드가 제자리로 이동,
-            번호 표시) → 이후 문장마다 카드 하나씩 강조. S = sort_line → '정답'이 처음 나오는 문장 → (N+1)//2
+            번호 표시) → 이후 문장마다 카드 하나씩 강조. S = sort_line → '정답'이 처음 나오는 문장 → 1
   timeline  사건 하나씩(선이 이어지며 자란다)
   flow      단계 하나씩(상자 + 화살표)
   bars      막대 하나씩(왼쪽부터 자라남), 값 표시
@@ -14,7 +14,7 @@ from __future__ import annotations
 from studio.video import design as D
 from studio.video.design import Box
 from studio.video.scenes import Beat, Key, SceneError, SceneRenderer, scene
-from studio.video.scenes.common import badge, card, header, pill, vcenter
+from studio.video.scenes.common import badge, card, header, vcenter
 from studio.video.scenes.quiz import CountdownMixin, countdown_audio
 
 
@@ -147,7 +147,7 @@ class Sequence(CountdownMixin, SceneRenderer):
         if not (isinstance(S_, int) and 1 <= S_ < N):
             S_ = next((i for i, s in enumerate(self.scene.narration) if i >= 1 and "정답" in s), None)
             if S_ is None and N >= 2:
-                S_ = (N + 1) // 2
+                S_ = 1
         self.S = S_
         cd = self.p.get("countdown")
         explicit = isinstance(cd, (int, float)) and cd > 0
@@ -288,7 +288,7 @@ class Timeline(SceneRenderer):
             raise SceneError(f"장면 {self.scene.id}(timeline): events 는 [{{label, text}}, ...] 형식이어야 합니다.")
 
     def build(self) -> None:
-        C, S, pal, u = self.content(), self.g.s, self.pal, self.g.unit
+        C, S, pal = self.content(), self.g.s, self.pal
         ev = [(str(e.get("label", "")), str(e.get("text", ""))) for e in self.p["events"]]
         m = len(ev)
         title = str(self.p.get("title") or "")
@@ -307,7 +307,7 @@ class Timeline(SceneRenderer):
             self._vertical(box, ev, steps, cards=(v == 1))
 
     def _vertical(self, box: Box, ev, steps, cards: bool) -> None:
-        S, pal, u = self.g.s, self.pal, self.g.unit
+        S, pal = self.g.s, self.pal
         width = box.w if self.g.portrait else int(box.w * 0.84)
         sz = S.lead
         while True:
@@ -577,7 +577,7 @@ class Bars(SceneRenderer):
                 raise SceneError(f"장면 {self.scene.id}(bars): value 는 숫자여야 합니다 ({i!r}).")
 
     def build(self) -> None:
-        C, S, pal, u = self.content(), self.g.s, self.pal, self.g.unit
+        C, S, pal = self.content(), self.g.s, self.pal
         items = [(str(i["label"]), float(i["value"])) for i in self.p["items"]]
         if any(v < 0 for _, v in items):
             self.warn("음수 값은 0으로 그립니다.")

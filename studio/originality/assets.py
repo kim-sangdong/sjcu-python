@@ -74,20 +74,30 @@ def short_label(asset_id: str, week: str | None = None) -> str:
 
 # ---------------------------------------------------------------- 영상
 
+FORMAT_TIE = 0.8   # 첫 본문 장면 kind 의 비중이 최댓값의 80% 이상이면 그것을 대표 형식으로(퀴즈 뒤 해설 목록 같은 경우)
+
+
 def representative_format(script: VideoScript, frame_kinds: set[str], families: dict[str, str]) -> tuple[str, dict[str, float]]:
-    """틀 장면을 뺀 장면 kind 의 가중 분포(문장 수 + 머무는 시간/4초)에서 가장 큰 것."""
+    """틀 장면(title·chapter·cta·outro)을 뺀 장면 kind 의 화면 시간 비중(내레이션 글자 수 + hold_seconds×5.5)에서 가장 큰 것.
+
+    비중이 비슷하면(첫 본문 장면이 최댓값의 80% 이상) 첫 본문 장면의 kind — 시청자가 형식을 알아보는 건 첫 장면이다.
+    """
     mix: dict[str, float] = {}
+    first = None
     for s in script.scenes():
         if s.kind in frame_kinds:
             continue
         fam = families.get(s.kind, s.kind)
-        mix[fam] = mix.get(fam, 0.0) + max(1, len(s.narration)) + s.hold_seconds / 4.0
+        first = first or fam
+        chars = sum(len(re.sub(r"\s", "", x)) for x in s.narration)
+        mix[fam] = mix.get(fam, 0.0) + max(chars, 1) + s.hold_seconds * 5.5
     if not mix:
         return "title-only", {}
     total = sum(mix.values())
-    mix = {k: round(v / total, 3) for k, v in mix.items()}
-    best = max(mix.items(), key=lambda kv: kv[1])[0]   # 같으면 먼저 나온 것(dict 순서)
-    return best, mix
+    best = max(mix.items(), key=lambda kv: kv[1])[0]
+    if first and mix[first] >= FORMAT_TIE * mix[best]:
+        best = first
+    return best, {k: round(v / total, 3) for k, v in mix.items()}
 
 
 def video_doc(script: VideoScript, frame_kinds: set[str], families: dict[str, str]) -> Doc:

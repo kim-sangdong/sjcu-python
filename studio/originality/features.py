@@ -28,6 +28,7 @@ THUMB_ROLES = {"longform": ("thumbnail", "cover"), "short": ("cover", "thumbnail
 class TextFx:
     norm: list[str]                 # 문장별 정규화(숫자 유지) — 자산 내부 반복
     hashes: list[str]               # 문장별 해시(숫자→0) — 고정 문구·문장 재사용
+    candidates: set[str]            # 고정 문구 후보(틀 장면 문장 + 첫·끝 문장)
     body: list[Line]                # 본문 문장(틀 장면·고정 문구 제외)
     sh: set[str]
     sh_num: set[str]
@@ -53,12 +54,26 @@ def sentence_keys(doc: Doc) -> tuple[list[str], list[str]]:
     return norm, hashes
 
 
+def phrase_candidates(doc: Doc, th: Thresholds) -> set[str]:
+    """고정 문구 후보: 틀 장면(인트로·CTA·아웃트로 등)의 문장과 자산의 첫·끝 문장.
+
+    본문 장면의 문장은 여러 편에 되풀이돼도 고정 문구로 보지 않는다 — 그건 상용구가 아니라 본문 재사용이라
+    대본 유사도·문장 재사용으로 잡아야 한다(정책상 허용되는 것은 인트로·아웃트로 공유뿐).
+    """
+    frame = set(th.opt("body_exclude_kinds") or [])
+    norm, hashes = sentence_keys(doc)
+    idx = [i for i, n in enumerate(norm) if len(n) >= MIN_SENT]
+    out = {hashes[i] for i in idx if doc.lines[i].scene_kind in frame}
+    if idx:
+        out.update({hashes[idx[0]], hashes[idx[-1]]})
+    return out
+
+
 def fixed_phrases(docs: list[Doc], past: list[dict], th: Thresholds) -> set[str]:
-    """여러 자산(묶음+아카이브)에 되풀이되는 문장 해시 + 설정된 상용구."""
+    """여러 자산(묶음+아카이브)의 고정 문구 후보 자리에 되풀이되는 문장 해시 + 설정된 상용구."""
     counts: dict[str, int] = {}
     for d in docs:
-        norm, hashes = sentence_keys(d)
-        for h in {h for h, n in zip(hashes, norm) if len(n) >= MIN_SENT}:
+        for h in phrase_candidates(d, th):
             counts[h] = counts.get(h, 0) + 1
     for e in past:
         for h in set(e.get("phrase_hashes") or []):
@@ -106,7 +121,7 @@ def text_fx(doc: Doc, fixed: set[str], fixed_desc: set[str], th: Thresholds) -> 
         else:
             voice_missing.append(str(p))
     return TextFx(
-        norm=norm, hashes=hashes, body=body, sh=sh, sh_num=sh_num,
+        norm=norm, hashes=hashes, candidates=phrase_candidates(doc, th), body=body, sh=sh, sh_num=sh_num,
         mh=T.minhash(sh), mh_num=T.minhash(sh_num),
         desc_sh=desc_sh, desc_mh=T.minhash(desc_sh, T.DESC_NUM_PERM), desc_len=len(desc),
         title_grams=T.title_grams(doc.title), head=T.title_head(doc.title, int(th.opt("title_prefix_words"))),

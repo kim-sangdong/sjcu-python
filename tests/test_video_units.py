@@ -543,3 +543,17 @@ def test_master_audio_with_bgm_and_loudnorm(root, cfg):
     txt = res.stderr
     measured = json.loads(txt[txt.rfind("{"):txt.rfind("}") + 1])
     assert abs(float(measured["input_i"]) - cfg.video.loudness_lufs) < 1.5
+
+
+def test_quiz_default_reveal_follows_script_format(cfg, fonts):
+    """SCRIPT_FORMAT 권장형(문제 읽기 1 + 해설 1~3): '정답'이라는 말이 없어도 첫 문장 뒤에 카운트다운·공개."""
+    from studio.video.scenes import get_renderer
+
+    spec = SAMPLES["quiz"]
+    sc = Scene(id="q", kind="quiz", narration=["다음 중 바른 것은 무엇일까요?", "돼는 되어의 준말입니다.", "되어로 바꿔 보세요."],
+               params=spec["params"], hold_seconds=5)
+    r = get_renderer("quiz")(sc, _ctx(cfg, fonts, (1080, 1920)))
+    beats = r.plan()
+    order = [(b.kind, b.line) for b in beats]
+    assert order == [("lead", None), ("speech", 0), ("hold", None), ("speech", 1), ("speech", 2)]
+    assert r.s_c == r.s_q == 0          # 공개 전 문장이 하나면 문제와 보기를 같이

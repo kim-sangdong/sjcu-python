@@ -21,7 +21,9 @@ import os
 import re
 import shutil
 import tempfile
+import threading
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable, Protocol, TypeVar
@@ -189,15 +191,17 @@ class GoogleTTS:
         self.rate = min(hi, max(lo, float(rate or 1.0)))
         self.language = language
         self._client = None
+        self._lock = threading.Lock()
         self._send_rate = abs(self.rate - 1.0) > 1e-3
         self._warned = False
 
     def client(self):
-        if self._client is None:
-            from google.cloud import texttospeech
+        with self._lock:
+            if self._client is None:
+                from google.cloud import texttospeech
 
-            cred = google_credentials_file()
-            self._client = texttospeech.TextToSpeechClient.from_service_account_file(str(cred))
+                cred = google_credentials_file()
+                self._client = texttospeech.TextToSpeechClient.from_service_account_file(str(cred))
         return self._client
 
     def _request(self, text: str) -> bytes:
@@ -303,7 +307,7 @@ class CachedTTS:
         if path.exists() and path.stat().st_size > 44:
             return path, media.wav_seconds(path)
         self.dir.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(f"{path.stem}.{os.getpid()}.{id(text)}.tmp.wav")
+        tmp = path.with_name(f"{path.stem}.{uuid.uuid4().hex[:8]}.tmp.wav")
         try:
             with_retry(lambda: self.provider.synthesize(text, tmp), what=f"TTS({self.provider.name}) '{clean_text(text)[:20]}…'")
             tmp.replace(path)
@@ -312,11 +316,15 @@ class CachedTTS:
         return path, media.wav_seconds(path)
 
     def clips(self, texts: list[str], parallel: int | None = None) -> list[tuple[Path, float]]:
+        """여러 문장(같은 문장은 한 번만 합성). 네트워크 공급자는 몇 개씩 동시에 요청한다."""
+        uniq = list(dict.fromkeys(clean_text(t) for t in texts))
         n = parallel or (GOOGLE_PARALLEL if self.provider.name != "silent" else 1)
-        if n <= 1 or len(texts) <= 1:
-            return [self.clip(t) for t in texts]
-        with ThreadPoolExecutor(max_workers=n) as ex:
-            return list(ex.map(self.clip, texts))
+        if n <= 1 or len(uniq) <= 1:
+            done = {t: self.clip(t) for t in uniq}
+        else:
+            with ThreadPoolExecutor(max_workers=n) as ex:
+                done = dict(zip(uniq, ex.map(self.clip, uniq)))
+        return [done[clean_text(t)] for t in texts]
 
     def synthesize(self, text: str, out_path: Path) -> float:
         src, secs = self.clip(text)
