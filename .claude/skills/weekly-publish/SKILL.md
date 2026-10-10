@@ -8,9 +8,9 @@ allowed-tools: Bash(python -m studio *) Bash(python3 -m studio *) Read Write Edi
 
 인자: `$ARGUMENTS` (비어 있으면 `status`)
 
-- `start`  : 아래 1~8단계를 모두 실행한다.
-- `build`  : 5~6단계만(원고는 이미 있음).
-- `ship`   : 7단계만.
+- `start`  : 아래 1~9단계를 모두 실행한다.
+- `build`  : 6~7단계만(원고는 이미 있음).
+- `ship`   : 8단계만.
 - `status` : `python -m studio weekly status` 결과를 요약해 보여 준다.
 - `--dry-run` 이 있으면 모든 명령 앞에 `STUDIO_DRY_RUN=1` 을 붙이고 `weekly build` 에 `--tts silent` 를 준다(리허설: 실제 업로드·유료 TTS 없음).
 - `--week` 가 있으면 그 주차를, 없으면 `prepare` 가 출력한 주차(마지막 줄)를 쓴다.
@@ -29,16 +29,17 @@ allowed-tools: Bash(python -m studio *) Bash(python3 -m studio *) Read Write Edi
 3. **주간 기획** — `plan.json` 의 `theme`, `summary`, `brief_applied`(지난주 보고서에서 무엇을 반영했는지)와 모든 항목의 `topic`, `angle`, `keyword`(블로그), `source_id`(파생 관계)를 채운다. `id`·`kind`·`publish_at` 은 바꾸지 않는다.
    - brief.md 의 이미 발행한 제목과 주제·구성이 겹치지 않게 한다.
    - 쇼츠 14편은 CONTENT_GUIDE 의 쇼츠 형식표에서 고르되, 같은 형식이 연속되지 않고 한 형식이 주 3편을 넘지 않게 배치한다.
-4. **원고 작성** — 아래 스킬 문서를 읽고 그 절차대로 파일을 쓴다(각 스킬을 따로 부를 필요 없이 문서 내용을 따른다).
+4. **문제은행** — `.claude/skills/question-bank/SKILL.md` 절차대로 이번 주에 쓸 문항을 만들고 `python -m studio bank verify` 를 통과시킨다. 원고의 퀴즈·OX·빈칸·계산·순서 장면은 verified 문항만 쓰고 `params.bank_id` 를 적는다(CONTENT_GUIDE 5장).
+5. **원고 작성** — 아래 스킬 문서를 읽고 그 절차대로 파일을 쓴다(각 스킬을 따로 부를 필요 없이 문서 내용을 따른다).
    - `.claude/skills/longform/SKILL.md` → `content/weeks/W/longform/<id>.json`
    - `.claude/skills/shorts/SKILL.md` → `content/weeks/W/shorts/<id>.json` (14편)
    - `.claude/skills/card-news/SKILL.md` → `content/weeks/W/cardnews/<id>.json`
    - `.claude/skills/tistory-blog/SKILL.md` → `content/weeks/W/blog/<id>.json`
    그다음 `python -m studio plan validate --week W` 를 돌려 오류가 0건이 될 때까지 고친다.
-5. **빌드** — `python -m studio weekly build --week W` (리허설이면 `--tts silent`).
+6. **빌드** — `python -m studio weekly build --week W` (리허설이면 `--tts silent`).
    - 종료 코드 2(독창성 차단)면 `content/weeks/W/originality.md` 의 수정 지시(fixes)대로 해당 원고만 고쳐 다시 빌드한다. 최대 3회.
    - 3회 뒤에도 차단된 콘텐츠는 이번 주에서 뺀다: `plan.json` 에서 그 항목을 지우고 원고 파일을 삭제한 뒤 빌드를 한 번 더 돌린다. 뺀 이유를 실행 보고서에 적는다.
    - 종료 코드 1(검증·렌더 실패)이면 오류 메시지를 읽고 원인을 고친다. 렌더 도구 자체의 고장이면 고치려 하지 말고 실행 보고서에 정확한 오류를 남기고 멈춘다.
-6. **검사 결과 확인** — `originality.md` 의 경고(warn)는 읽고, 다음 주 기획에 반영할 점을 실행 보고서에 적는다.
-7. **발행 예약** — `python -m studio weekly ship --week W` (리허설이면 `--dry-run`). 결과 표에서 failed 가 있으면 원인을 요약한다. 유튜브가 감사 전(`platforms.youtube.audited: false`)이면 업로드 패키지 경로를 보고서에 적는다(사람이 Studio 에서 예약 업로드 → `python -m studio publish mark ...` 로 영상 ID 연결).
-8. **실행 보고서** — `content/weeks/W/RUN_REPORT.md` 에 다음을 쓴다: 주제, 만든 콘텐츠 수, 독창성 결과(차단·경고 수와 처리), 발행 예약 현황, 사람이 해야 할 일(있다면), 다음 주에 반영할 점. 마지막에 같은 내용을 5줄 이내로 출력한다.
+7. **검사 결과 확인** — `originality.md` 의 경고(warn)는 읽고, 다음 주 기획에 반영할 점을 실행 보고서에 적는다.
+8. **발행 예약** — `python -m studio weekly ship --week W` (리허설이면 `--dry-run`). 실제 발행이면 이어서 원고에 쓴 문항마다 `python -m studio bank mark-used --asset <id> --items <Q-...>` 를 실행한다. 결과 표에서 failed 가 있으면 원인을 요약한다. 유튜브가 감사 전(`platforms.youtube.audited: false`)이면 업로드 패키지 경로를 보고서에 적는다(사람이 Studio 에서 예약 업로드 → `python -m studio publish mark ...` 로 영상 ID 연결).
+9. **실행 보고서** — `content/weeks/W/RUN_REPORT.md` 에 다음을 쓴다: 주제, 만든 콘텐츠 수, 독창성 결과(차단·경고 수와 처리), 발행 예약 현황, 사람이 해야 할 일(있다면), 다음 주에 반영할 점. 마지막에 같은 내용을 5줄 이내로 출력한다.

@@ -2,11 +2,11 @@
 # 주제가 바뀌면 channel·app·rules 와 docs/CONTENT_GUIDE.md 만 고치면 된다.
 
 channel:
-  name: "채널 이름(미정)"
+  name: "함정노트 공인중개사"      # 가칭 — KIPRIS 상표·채널명 중복 확인 후 확정
   handle: ""
-  topic: "미정"
-  audience: ""
-  tone: "존댓말, 차분하고 정확하게, 과장 없이"
+  topic: "공인중개사 시험 대비 — 함정 지문·숫자·판례를 근거 조문과 함께"
+  audience: "공인중개사 1·2차 수험생(직장인 독학 비중 큼), 부동산 생활법률에 관심 있는 일반인"
+  tone: "존댓말, 짧고 단정하게, 근거를 먼저, 과장 없이"
   language: ko
   timezone: Asia/Seoul
 
@@ -71,28 +71,74 @@ brand:
   font_bold: NanumGothicExtraBold.ttf
 
 app:
-  name: ""
+  name: "함정노트"                 # 가칭
   android_package: ""
   ios_app_id: ""
   play_url: ""
   appstore_url: ""
   link_base: ""                   # https://<project-ref>.supabase.co/functions/v1/go
+  android_package_default: kr.hamjeongnote.app
 
 storage:
   provider: supabase
   bucket: media
 
 rules:
+  # 근거: docs/research/round2/judge.md (4) — 표시광고법(에듀윌 과징금 사례), 사칭, 저작권, 투자권유, 법률상담
   banned_phrases:
-    - 치매 예방
-    - 치매 개선
-    - 치매예방
     - 합격 보장
     - 100% 합격
-    - 적중
+    - 무조건 합격
+    - 합격자 수 1위
+    - 업계 1위
+    - 적중률
+    - 적중 100%
+    - 이것만 보면 합격
+    - 점수 상승 보장
+    - 국가공인 앱
+    - 큐넷 제공
+    - 공단 인증
+    - 공단 제휴
+    - 국토교통부 지정
+    - 정답 확정
+    - 족보
+    - 복원 문제
+    - 기출 원문
+    - 지금 사세요
+    - 지금 파세요
+    - 갭투자 추천
+    - 수익 보장
+    - 시세 예측
+    - 100% 돌려받는
+    - 모르면 무조건 떨어
   caution_phrases:
     - 공식
     - 무조건
-  disclaimer: ""
+    - 항상
+    - 절대
+    - 최신
+    - 현재 법
+    - 개정됐다더라
+    - 합격률
+    - 가답안
+  disclaimer: "※ 한국산업인력공단·큐넷과 무관한 비공식 학습 채널입니다. 법령은 화면에 표시한 시행일 기준이며, 개별 사안은 대한법률구조공단(132) 또는 변호사와 상담하세요."
+
+exam:
+  name: 공인중개사
+  round: 37                       # 37회 2026-10-31(토), 발표 2026-12-02 — 시험 후 38로 바꾼다
+  next_exam_date: "2026-10-31"
+  following_exam_date: "2027-10-30"   # 38회 추정(매년 10월 마지막 토요일 관행) — 큐넷 공고 후 수정
+  subjects:
+    - {code: RE,  name: 부동산학개론, part: 1}
+    - {code: CIV, name: 민법 및 민사특별법, part: 1}
+    - {code: BRK, name: 공인중개사법령 및 중개실무, part: 2}
+    - {code: PUB, name: 부동산공법, part: 2}
+    - {code: REG, name: 부동산공시법령, part: 2}
+    - {code: TAX, name: 부동산세법, part: 2}
+
+ads:
+  weekly_budget_krw: 0            # 광고 예산(원). 0 이면 /ad-decision 은 유기적 우선순위만 낸다
+  cpm_krw: 4000                   # 가정값 — 실제 집행 후 보정
+  cpi_krw: 2500
 
 originality: {}                   # 검사 임계값 덮어쓰기 (기본값은 studio/originality/thresholds.py)
