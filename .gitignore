@@ -172,3 +172,21 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# ---- studio (콘텐츠 자동화) ----
+# 렌더 결과(영상·이미지)는 용량이 커서 저장소에 넣지 않는다. 원고·보고서·대기열 JSON 은 커밋한다.
+out/
+.secrets/
+assets/fonts/*.ttf
+*.mp4
+*.wav
+*.mp3
+!assets/bgm/*.mp3
+# 앱(Expo)
+node_modules/
+app/.expo/
+app/dist/
+app/android/
+app/ios/
+!app/src/lib/
+supabase/.temp/

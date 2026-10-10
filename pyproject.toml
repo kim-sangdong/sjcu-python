@@ -1,0 +1,38 @@
+[project]
+name = "studio"
+version = "0.1.0"
+description = "쇼츠 발견부터 앱 결제까지 — Claude Code로 굴리는 1인 콘텐츠 비즈니스 자동화"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "pillow>=10.0",
+    "numpy>=1.26",
+    "imagehash>=4.3",
+    "requests>=2.31",
+    "google-api-python-client>=2.120",
+    "google-auth>=2.28",
+    "google-auth-oauthlib>=1.2",
+    "google-cloud-texttospeech>=2.16",
+    "edge-tts>=7.0",
+    "playwright>=1.45",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "responses>=0.25"]
+
+[project.scripts]
+studio = "studio.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["studio*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
