@@ -511,3 +511,35 @@ def test_cover_styles(root, cfg, style):
     with Image.open(out) as im:
         assert im.size == (1080, 1920)
     assert render_cover(_script("short", None), cfg, root / "c_none.png").exists()
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg 필요")
+def test_master_audio_with_bgm_and_loudnorm(root, cfg):
+    """assets/bgm/*.mp3 가 있으면 깔고, loudnorm 2-pass 로 목표 크기(-14 LUFS)에 맞춘다."""
+    import subprocess
+
+    from studio.video import media
+    from studio.video.compose import master_audio, pick_bgm
+
+    bgm_dir = root / "assets" / "bgm"
+    bgm_dir.mkdir(parents=True)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=3",
+                    "-c:a", "libmp3lame", str(bgm_dir / "calm.mp3")], check=True)
+    assert pick_bgm(cfg, "2026W42-L1") == bgm_dir / "calm.mp3"
+    sr = media.SAMPLE_RATE
+    t = np.arange(sr * 8) / sr
+    speech = (np.sin(2 * np.pi * 180 * t) * 6000 * (np.sin(2 * np.pi * 0.7 * t) > 0)).astype(np.int16)
+    narr = media.write_wav(root / "narr.wav", speech)
+    out = root / "a.m4a"
+    info = master_audio(narr, out, 8.0, cfg, "2026W42-L1", normalize=True)
+    assert info["bgm"] == "assets/bgm/calm.mp3" and info["loudnorm"]["target_i"] == cfg.video.loudness_lufs
+    meta = media.probe(out)
+    st = meta["streams"][0]
+    assert st["codec_name"] == "aac" and int(st["sample_rate"]) == 48000 and st["channels"] == 2
+    assert abs(float(meta["format"]["duration"]) - 8.0) < 0.1
+    # 결과 크기 측정: 목표 ±1.5 LU
+    res = subprocess.run(["ffmpeg", "-hide_banner", "-nostdin", "-i", str(out), "-af", "loudnorm=print_format=json", "-f", "null", "-"],
+                         capture_output=True, text=True)
+    txt = res.stderr
+    measured = json.loads(txt[txt.rfind("{"):txt.rfind("}") + 1])
+    assert abs(float(measured["input_i"]) - cfg.video.loudness_lufs) < 1.5

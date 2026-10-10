@@ -75,7 +75,11 @@ def cmd_video(args: argparse.Namespace) -> int:
             res = render_video(script, cfg, opts)
         except MissingSecret:
             raise
-        except (SceneError, Exception) as e:  # 한 편이 실패해도 나머지는 계속
+        except SceneError as e:
+            failed += 1
+            print(f"[오류] {script.id}: 원고의 장면 설정을 고쳐 주세요 — {e}", file=sys.stderr)
+            continue
+        except Exception as e:  # 한 편이 실패해도 나머지는 계속
             failed += 1
             print(f"[오류] {script.id}: {type(e).__name__}: {e}", file=sys.stderr)
             continue
