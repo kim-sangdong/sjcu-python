@@ -1,0 +1,32 @@
+{
+ "kind": "subject",
+ "schema_version": 1,
+ "version": "20261010-85d99c65",
+ "subject": "RE",
+ "name": "부동산학개론",
+ "count": 1,
+ "items": [
+  {
+   "id": "Q-RE-d48e4ecd",
+   "subject": "RE",
+   "unit": "부동산 투자분석",
+   "type": "calc",
+   "stem": "순영업소득이 5,000만원이고 부채서비스액(원리금 상환액)이 4,000만원일 때 부채감당률은?",
+   "answer": 1.25,
+   "explanation": "부채감당률 = 순영업소득 ÷ 부채서비스액 = 5,000만원 ÷ 4,000만원 = 1.25 함정: 분자·분모를 뒤집어 0.8로 계산하는 실수가 많습니다.",
+   "trap": "기타",
+   "basis": [
+    {
+     "kind": "calc",
+     "quote": "부채감당률 = 순영업소득 ÷ 부채서비스액",
+     "note": "투자분석 비율",
+     "badge": "[계산 · 투자분석 비율]"
+    }
+   ],
+   "difficulty": 2,
+   "free": true,
+   "version": 1,
+   "updated_at": "2026-10-10T00:00:00+09:00"
+  }
+ ]
+}

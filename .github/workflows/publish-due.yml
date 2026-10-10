@@ -1,0 +1,119 @@
+# 공개 시각이 된 발행 대기열 처리 — 매시 7분.
+# 인스타·틱톡·티스토리처럼 예약 공개를 받지 않는 플랫폼은 이 작업이 공개 시각에 올린다(유튜브·페북은 주간 실행이 미리 예약).
+# 영상 파일은 렌더한 실행의 out/ 이 아니라 스토리지(Supabase media 버킷)에서 받아 쓴다(studio.publish.storage.ensure_local).
+# 처리할 항목이 없으면 설치 단계를 건너뛰어 Actions 사용 시간을 아낀다(scripts/ci_due_check.py).
+name: publish-due
+
+on:
+  schedule:
+    - cron: "7 * * * *" # 매시 7분(정각 공개분을 7분 안에 올린다)
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "이 주차만(예: 2026-W42). 비우면 최근 3주"
+        required: false
+        default: ""
+      dry_run:
+        description: "리허설 — 보낼 요청만 기록(queue.json 그대로)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # queue.json 커밋
+  issues: write # 실패 알림 이슈
+
+concurrency:
+  group: publish-due
+  cancel-in-progress: false
+
+jobs:
+  due:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      PYTHONIOENCODING: utf-8
+      STUDIO_TOKEN_BACKEND: supabase
+      STUDIO_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+      INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+      INSTAGRAM_TOKEN: ${{ secrets.INSTAGRAM_TOKEN }}
+      FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+      TISTORY_STORAGE_STATE_B64: ${{ secrets.TISTORY_STORAGE_STATE_B64 }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 처리할 항목 확인
+        id: due
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            python3 scripts/ci_due_check.py --force   # 수동 실행은 항상 돈다
+          else
+            python3 scripts/ci_due_check.py
+          fi
+
+      - uses: actions/setup-python@v6
+        if: steps.due.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: 패키지 설치
+        if: steps.due.outputs.run == 'true'
+        run: pip install -e .
+
+      - name: Playwright 버전
+        id: pw
+        if: steps.due.outputs.run == 'true' && steps.due.outputs.tistory == 'true'
+        run: echo "version=$(python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
+
+      - name: Playwright 브라우저 캐시
+        if: steps.due.outputs.run == 'true' && steps.due.outputs.tistory == 'true'
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Playwright 크로미움(티스토리)
+        if: steps.due.outputs.run == 'true' && steps.due.outputs.tistory == 'true'
+        run: python -m playwright install --with-deps chromium
+
+      - name: 발행(publish due)
+        if: steps.due.outputs.run == 'true'
+        env:
+          WEEK_INPUT: ${{ inputs.week }}
+        run: |
+          args=(--all-recent)
+          if [ -n "${WEEK_INPUT:-}" ]; then
+            if ! [[ "$WEEK_INPUT" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then echo "::error::주차 형식이 아닙니다: $WEEK_INPUT"; exit 1; fi
+            args=(--week "$WEEK_INPUT")
+          fi
+          if [ "${STUDIO_DRY_RUN:-}" = "1" ]; then args+=(--dry-run); fi
+          python -m studio publish due "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/publish-due.log"
+
+      - name: 대기열 커밋·푸시
+        if: ${{ !cancelled() && steps.due.outputs.run == 'true' && env.STUDIO_DRY_RUN != '1' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci_commit_push.sh "publish due $(TZ=Asia/Seoul date '+%m-%d %H:%M')" content
+
+      - name: 실패 알림
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          summary="$RUNNER_TEMP/failure-summary.txt"
+          tail -n 60 "$RUNNER_TEMP/publish-due.log" > "$summary" 2>/dev/null || true
+          bash scripts/ci_failure_report.sh "publish-due" "$summary"

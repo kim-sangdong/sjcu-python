@@ -798,7 +798,7 @@ def run_check(week: str, stage: str = "script", *, only: list[str] | None = None
             pass
     assets = [results[d.asset_id] for d in ck.docs if d.asset_id in results]
     verdict = max((a.verdict for a in assets), key=SEVERITY.__getitem__, default="pass")
-    report = OriginalityReport(week=week, generated_at=datetime.now(paths.KST), verdict=verdict, assets=assets)
+    report = OriginalityReport(week=week, generated_at=datetime.now(paths.KST), stage=stage, verdict=verdict, assets=assets)
     elapsed = time.time() - t0
     if write:
         write_model(json_p, report)

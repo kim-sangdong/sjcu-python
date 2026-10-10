@@ -194,6 +194,7 @@ class AssetOriginality(_Model):
 class OriginalityReport(_Model):
     week: str
     generated_at: datetime
+    stage: Literal["script", "render"] | None = None
     verdict: Verdict
     assets: list[AssetOriginality] = Field(default_factory=list)
 

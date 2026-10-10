@@ -1,0 +1,158 @@
+# 주간 성과·광고 판단·전략 — 매주 토요일 23:30 KST(= 14:30 UTC 토).
+# 지표 수집(analytics collect) → Claude 가 /channel-revenue → /ad-decision → /ad-strategy 를 차례로 실행 → reports/ 커밋.
+# 다음 날(일) 12:00 /weekly-publish 가 reports/<주차>/ad-strategy.md 를 기획 입력으로 읽는다.
+# 세 스킬을 한 세션에 몰지 않고 단계별로 나눈다 — 앞 단계가 실패해도 뒤 단계가 있는 자료로 보고서를 쓴다.
+name: weekly-report
+
+on:
+  schedule:
+    - cron: "30 14 * * 6" # 토 23:30 KST
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "주차(예: 2026-W42). 비우면 지금 발행 중인 주차"
+        required: false
+        default: ""
+      fake:
+        description: "합성 데이터로 형식만 확인(analytics collect --fake)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # reports/ 커밋
+  issues: write # 실패 알림 이슈
+
+concurrency:
+  group: weekly-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PYTHONUNBUFFERED: "1"
+      PYTHONIOENCODING: utf-8
+      STUDIO_TOKEN_BACKEND: supabase
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+      INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+      INSTAGRAM_TOKEN: ${{ secrets.INSTAGRAM_TOKEN }}
+      FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+      REVENUECAT_SECRET_KEY: ${{ secrets.REVENUECAT_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: 패키지 설치
+        run: pip install -e .
+
+      - name: 주차 정하기
+        id: prep
+        env:
+          WEEK_INPUT: ${{ inputs.week }}
+          FAKE: ${{ inputs.fake && '--fake' || '' }}
+        run: |
+          week="${WEEK_INPUT:-}"
+          if [ -z "$week" ]; then
+            # 토요일 밤 기준 "지금 발행 중인 주차" = 오늘(KST)이 속한 ISO 주
+            week="$(python -c 'from studio import paths; print(paths.week_of(paths.now_kst()))')"
+          fi
+          if ! [[ "$week" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then
+            echo "::error::주차 형식이 아닙니다: $week (예: 2026-W42)"
+            exit 1
+          fi
+          echo "week=$week" >> "$GITHUB_OUTPUT"
+          echo "fake=$FAKE" >> "$GITHUB_OUTPUT"
+          echo "주차 $week ${FAKE}"
+
+      - name: 지표 수집(analytics collect)
+        id: collect
+        continue-on-error: true # 일부 플랫폼이 실패해도 보고서는 쓴다(보고서가 결손을 밝힌다)
+        run: python -m studio analytics collect --week "${{ steps.prep.outputs.week }}" ${{ steps.prep.outputs.fake }}
+
+      - name: Claude — /channel-revenue
+        id: revenue
+        uses: anthropics/claude-code-action@v1 # 확인: v1.0.248 (2026-10-09)
+        with:
+          prompt: "/channel-revenue --week ${{ steps.prep.outputs.week }} ${{ steps.prep.outputs.fake }}"
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: |
+            --max-turns 80
+            --allowedTools "Bash(python -m studio *),Bash(python3 -m studio *),Read,Write,Edit,Glob,Grep"
+            --disallowedTools "Read(//proc/**),Read(//home/runner/work/_temp/**)"
+            ${{ vars.CLAUDE_MODEL && format('--model {0}', vars.CLAUDE_MODEL) || '' }}
+
+      - name: Claude — /ad-decision
+        id: decision
+        if: ${{ !cancelled() && steps.prep.outcome == 'success' }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: "/ad-decision --week ${{ steps.prep.outputs.week }}"
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Bash(python -m studio *),Bash(python3 -m studio *),Read,Write,Edit,Glob,Grep"
+            --disallowedTools "Read(//proc/**),Read(//home/runner/work/_temp/**)"
+            ${{ vars.CLAUDE_MODEL && format('--model {0}', vars.CLAUDE_MODEL) || '' }}
+
+      - name: Claude — /ad-strategy
+        id: strategy
+        if: ${{ !cancelled() && steps.prep.outcome == 'success' }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: "/ad-strategy --week ${{ steps.prep.outputs.week }}"
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Bash(python -m studio *),Bash(python3 -m studio *),Read,Write,Edit,Glob,Grep"
+            --disallowedTools "Read(//proc/**),Read(//home/runner/work/_temp/**)"
+            ${{ vars.CLAUDE_MODEL && format('--model {0}', vars.CLAUDE_MODEL) || '' }}
+
+      - name: 결과 요약
+        if: always() && steps.prep.outputs.week != ''
+        env:
+          WEEK: ${{ steps.prep.outputs.week }}
+          COLLECT: ${{ steps.collect.outcome }}
+        run: |
+          {
+            echo "## weekly-report $WEEK"
+            echo "- 지표 수집: $COLLECT"
+            for f in channel-revenue.md ad-decision.md ad-strategy.md; do
+              if [ -f "reports/$WEEK/$f" ]; then echo "- reports/$WEEK/$f 있음"; else echo "- reports/$WEEK/$f **없음**"; fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 보고서 커밋·푸시
+        if: ${{ !cancelled() && steps.prep.outputs.fake == '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEEK: ${{ steps.prep.outputs.week }}
+        run: bash scripts/ci_commit_push.sh "weekly-report ${WEEK:-?}" reports
+
+      - name: 실패 알림
+        if: failure() || steps.collect.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci_failure_report.sh "weekly-report"

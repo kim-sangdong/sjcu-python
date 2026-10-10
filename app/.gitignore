@@ -1,0 +1,29 @@
+# Expo / Metro
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+*.tsbuildinfo
+
+# 네이티브 폴더는 CNG(prebuild)로 매번 생성한다
+/android
+/ios
+.kotlin/
+
+# 서명·키 — 절대 커밋하지 않는다
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+secrets/
+
+# 로컬 환경변수
+.env
+.env*.local
+
+# 디버그
+npm-debug.*

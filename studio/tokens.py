@@ -54,11 +54,10 @@ class SupabaseTokenStore:
 
     @property
     def _headers(self) -> dict[str, str]:
-        return {
-            "apikey": self.key,
-            "Authorization": f"Bearer {self.key}",
-            "Content-Type": "application/json",
-        }
+        h = {"apikey": self.key, "Content-Type": "application/json"}
+        if self.key.startswith("eyJ"):  # 옛 JWT 형식(service_role) 키만 Bearer 로. 새 sb_secret_ 키는 apikey 헤더만.
+            h["Authorization"] = f"Bearer {self.key}"
+        return h
 
     def get(self, key: str) -> dict[str, Any] | None:
         r = requests.get(

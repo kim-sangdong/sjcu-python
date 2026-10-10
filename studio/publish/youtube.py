@@ -361,8 +361,8 @@ class YouTubePublisher:
         if not ctx.cfg.platforms.youtube.audited:
             return make_package(ctx, script, warnings)
         rid = ctx.target.remote_id
-        if rid and not rid.startswith(DRYRUN_PREFIX) and not _is_dry(ctx):
-            # 이미 올라간 영상 — 다시 올리면 중복 영상이 생긴다. 상태만 확인한다.
+        if rid and not rid.startswith(DRYRUN_PREFIX):
+            # 이미 올라간 영상 — 다시 올리면 중복 영상이 생긴다. 상태만 확인한다(dry-run 이면 확인도 생략).
             res = self.check(ctx)
             res.note = f"이미 업로드됨(중복 업로드 안 함). {res.note}".strip()
             return res
@@ -648,7 +648,7 @@ def make_package(ctx: PublishContext, script: VideoScript, warnings: list[str]) 
 def _fmt_duration(sec: float | None) -> str:
     if not sec:
         return "?"
-    s = int(round(sec))
+    s = round(sec)
     h, rem = divmod(s, 3600)
     m, s = divmod(rem, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
@@ -672,7 +672,7 @@ def package_guide(meta: dict[str, Any], target_key: str) -> str:
     if files.get("thumbnail") or files.get("cover"):
         lines.append(f"- 썸네일: `{files.get('thumbnail') or files.get('cover')}`")
     if files.get("subtitles"):
-        lines.append(f"- 자막: `{files['subtitles']}`")
+        lines.append(f"- 자막: `{files['subtitles']}`" + ("" if longform else " (쇼츠는 화면에 자막이 입혀져 있어 올리지 않아도 됩니다)"))
     lines.append(f"- 재생목록: {meta['playlist_id'] or '(설정 없음)'}")
     lines += ["", "## 제목", "", "```text", meta["title"], "```", "", "## 설명", "", "```text", meta["description"], "```", ""]
     if meta["tags"]:
@@ -687,7 +687,7 @@ def package_guide(meta: dict[str, Any], target_key: str) -> str:
     if longform and files.get("thumbnail"):
         lines.append(f"- [ ] 썸네일 업로드: `{files['thumbnail']}`")
     elif not longform:
-        lines.append("- [ ] 쇼츠 썸네일: 업로드 후 모바일 앱에서 프레임 선택(필요하면 `cover.png` 참고)")
+        lines.append("- [ ] (선택) 쇼츠 썸네일: YouTube 앱에서 쇼츠 썸네일 프레임 지정 — `cover.png` 참고")
     if meta["playlist_id"]:
         lines.append(f"- [ ] 재생목록에 추가: {meta['playlist_id']}")
     lines += [

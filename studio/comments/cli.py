@@ -29,6 +29,15 @@ def _rel(p: Path) -> str:
         return str(p)
 
 
+def _transient() -> tuple[type[BaseException], ...]:
+    """토큰 서버 일시 오류(google.auth RefreshError·TransportError)와 네트워크 오류."""
+    from google.auth.exceptions import GoogleAuthError as LibAuthError
+
+    from studio.publish.youtube import transient_errors
+
+    return (LibAuthError, *transient_errors())
+
+
 def _api_failure(e: Exception, action: str) -> int:
     from studio.publish.youtube import to_publish_error
 
@@ -54,6 +63,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         rep = fetch_inbox(cfg, since_hours=args.since_hours, max_items=args.max)
     except HttpError as e:
         return _api_failure(e, "commentThreads.list")
+    except _transient() as e:
+        print(f"[오류] YouTube·Google 서버 연결 실패({type(e).__name__}: {str(e)[:200]}) — 잠시 뒤 다시 실행하세요.", file=sys.stderr)
+        return 1
     inbox = rep.out_dir / "inbox.json"
     spam = sum(1 for i in rep.items if "spam" in i["flags"])
     print(f"새 댓글 {len(rep.items)}건 → {_rel(inbox)} (스팸 의심 {spam}건, 훑어본 스레드 {rep.scanned}개)")
@@ -82,6 +94,10 @@ def cmd_post(args: argparse.Namespace) -> int:
     except RepliesFileError as e:
         print(f"[오류] {e}", file=sys.stderr)
         return 2
+    except _transient() as e:
+        print(f"[오류] YouTube·Google 서버 연결 실패({type(e).__name__}: {str(e)[:200]}) — 잠시 뒤 다시 실행하세요. "
+              "이미 올린 답글은 장부에 남아 다시 올리지 않습니다.", file=sys.stderr)
+        return 1
     label = {"posted": "올림", "skipped": "건너뜀", "already": "이미 답함", "duplicate": "중복",
              "rejected": "거부", "deferred": "보류", "failed": "실패"}
     for r in rep.results:

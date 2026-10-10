@@ -1,0 +1,46 @@
+{
+ "kind": "subject",
+ "schema_version": 1,
+ "version": "20261010-85d99c65",
+ "subject": "BRK",
+ "name": "공인중개사법령 및 중개실무",
+ "count": 1,
+ "items": [
+  {
+   "id": "Q-BRK-8adb7ecc",
+   "subject": "BRK",
+   "unit": "거래계약서",
+   "type": "mcq",
+   "stem": "개업공인중개사가 작성·교부한 거래계약서의 원본, 사본 또는 전자문서를 보존해야 하는 기간은?",
+   "choices": [
+    "1년",
+    "3년",
+    "5년",
+    "10년"
+   ],
+   "answer": 2,
+   "explanation": "거래계약서는 5년, 중개대상물 확인·설명서는 3년입니다. 함정: 확인·설명서 보존기간(3년)과 섞어 냅니다.",
+   "trap": "기간혼동",
+   "basis": [
+    {
+     "kind": "law",
+     "law_name": "공인중개사법",
+     "article": "제26조 제1항",
+     "effective_date": "2024-07-10",
+     "badge": "[공인중개사법 제26조 제1항 · 2024.7.10 시행 기준]"
+    },
+    {
+     "kind": "law",
+     "law_name": "공인중개사법 시행령",
+     "article": "제22조 제2항",
+     "effective_date": "2024-07-10",
+     "badge": "[공인중개사법 시행령 제22조 제2항 · 2024.7.10 시행 기준]"
+    }
+   ],
+   "difficulty": 1,
+   "free": true,
+   "version": 1,
+   "updated_at": "2026-10-10T00:00:00+09:00"
+  }
+ ]
+}

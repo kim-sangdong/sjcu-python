@@ -93,7 +93,7 @@ def _video_titles(yt, ids: list[str]) -> dict[str, str]:
     titles: dict[str, str] = {}
     for i in range(0, len(ids), 50):
         chunk = ids[i : i + 50]
-        resp = yt.videos().list(part="snippet", id=",".join(chunk), maxResults=50).execute(num_retries=EXECUTE_RETRIES)
+        resp = yt.videos().list(part="snippet", id=",".join(chunk)).execute(num_retries=EXECUTE_RETRIES)  # id 와 maxResults 는 함께 못 씀
         for v in resp.get("items") or []:
             titles[v["id"]] = v.get("snippet", {}).get("title", "")
     return titles

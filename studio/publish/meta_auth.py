@@ -20,8 +20,9 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import requests
 
@@ -96,7 +97,7 @@ def env_dry_run() -> bool:
 
 
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def parse_time(value: Any) -> datetime | None:
@@ -106,7 +107,7 @@ def parse_time(value: Any) -> datetime | None:
         dt = datetime.fromisoformat(str(value))
     except ValueError:
         return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 # ---------------------------------------------------------------- Graph 호출
@@ -389,7 +390,7 @@ def cmd_auth_facebook(args: argparse.Namespace) -> int:
                              params={"input_token": page.get("access_token", "")},
                              what="페이지 토큰 점검", reauth="facebook")
             exp = _int((dbg.get("data") or {}).get("expires_at"))
-            expires = "만료 없음" if exp == 0 else (datetime.fromtimestamp(exp, timezone.utc).isoformat() if exp else "?")
+            expires = "만료 없음" if exp == 0 else (datetime.fromtimestamp(exp, UTC).isoformat() if exp else "?")
         except GraphError as e:
             expires = f"확인 실패({e.kind})"
     ig = page.get("instagram_business_account") or {}

@@ -1,0 +1,37 @@
+# Supabase CLI 로컬 개발용 최소 설정 (`supabase start`, `supabase functions serve`).
+# 원격 프로젝트에는 `supabase link` 후 `supabase db push`(마이그레이션), `supabase functions deploy`(함수)로 반영한다.
+# 함수별 verify_jwt 는 배포할 때도 이 파일 값을 따른다.
+
+project_id = "studio"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000          # studio.analytics 의 페이지 크기(1000)와 같게
+
+[db]
+port = 54322
+major_version = 17       # 원격 프로젝트의 Postgres 주 버전과 맞춘다(대시보드 → Settings → Infrastructure). [미확인: 새 프로젝트 기본값]
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"   # 무료 플랜 파일당 상한과 같게
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"       # 로컬에서도 EdgeRuntime.waitUntil(클릭 기록)이 응답 뒤까지 끝나도록
+deno_version = 2
+
+# 추적 링크 — 유튜브 설명란 등에서 누구나 누르는 공개 주소라 JWT 검사를 끈다.
+[functions.go]
+verify_jwt = false
+
+# RevenueCat 웹훅 — RevenueCat 서버가 부르므로 JWT 대신 Authorization 헤더(REVENUECAT_WEBHOOK_AUTH)로 확인한다.
+[functions.revenuecat-webhook]
+verify_jwt = false

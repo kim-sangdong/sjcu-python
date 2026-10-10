@@ -5,7 +5,9 @@
   sequence  문장 0..S-1: 섞인 카드 → (countdown 이 있으면 생각할 시간) → 문장 S: 정렬 애니메이션(카드가 제자리로 이동,
             번호 표시) → 이후 문장마다 카드 하나씩 강조. S = sort_line → '정답'이 처음 나오는 문장 → 1
   timeline  사건 하나씩(선이 이어지며 자란다)
-  flow      단계 하나씩(상자 + 화살표)
+  flow      단계 하나씩(상자 + 화살표). params.hidden(숨길 단계 번호, 0부터)이 있으면 그 단계는 '?' 칩으로 가렸다가
+            문장 R(reveal_line → '정답'·'답은' 문장 → 마지막 문장)에서 공개. 공개 전 생각할 시간(countdown → hold_seconds → 3초)
+            동안 '?'가 깜박인다(째깍). 근거 배지(basis)는 공개 단계에 나온다.
   bars      막대 하나씩(왼쪽부터 자라남), 값 표시
 """
 
@@ -15,6 +17,7 @@ from studio.video import design as D
 from studio.video.design import Box
 from studio.video.scenes import Beat, Key, SceneError, SceneRenderer, scene
 from studio.video.scenes.common import badge, card, header, vcenter
+from studio.video.scenes.exam import pulse, q_chip
 from studio.video.scenes.quiz import CountdownMixin, countdown_audio
 
 
@@ -418,16 +421,103 @@ class Timeline(SceneRenderer):
 
 # ---------------------------------------------------------------- flow
 
+FLOW_THINK = 3.0      # hidden 공개 전 기본 생각 시간(초)
+FLOW_REVEAL_HOLD = 2.0
+
+
 @scene("flow")
 class Flow(SceneRenderer):
     required = ("steps",)
+
+    # ---- hidden: '?' 로 가렸다가 공개
+
+    def _hidden_phases(self) -> None:
+        m = len(self.p["steps"])
+        raw = self.p.get("hidden") or []
+        if isinstance(raw, int) and not isinstance(raw, bool):
+            raw = [raw]
+        if not isinstance(raw, list) or any(not isinstance(i, int) or isinstance(i, bool) or not 0 <= i < m for i in raw):
+            raise SceneError(f"장면 {self.scene.id}(flow): hidden 은 숨길 단계 번호(0부터 {m - 1}) 목록이어야 합니다.")
+        self.hidden = sorted(set(raw))
+        if not self.hidden:
+            return
+        N, lines = self.n, self.scene.narration
+        R = self.p.get("reveal_line")
+        if not (isinstance(R, int) and not isinstance(R, bool) and 1 <= R < N):
+            R = next((i for i, t in enumerate(lines) if i >= 1 and ("정답" in t or "답은" in t)), None)
+            if R is None and N >= 2:
+                R = N - 1
+        self.R = R
+        self.pre = R if R is not None else N
+        cd = self.p.get("countdown")
+        explicit = isinstance(cd, (int, float)) and not isinstance(cd, bool) and cd > 0
+        self.think = float(cd) if explicit else (float(self.scene.hold_seconds) or FLOW_THINK)
+        self.end_hold = float(self.scene.hold_seconds) if explicit else 0.0
+
+    def plan(self) -> list[Beat]:
+        if not self.hidden:
+            return super().plan()
+        beats = [Beat("lead", -1)]
+        last_node = max(self.node_steps)
+        for i in range(self.pre):
+            beats.append(Beat("speech", min(i, last_node), line=i))
+        if self.pre == 0:
+            beats.append(Beat("hold", last_node, seconds=2.5))
+        beats.append(Beat("hold", last_node, seconds=self.think, live=True, sfx="think"))
+        if self.R is not None:
+            for i in range(self.R, self.n):
+                beats.append(Beat("speech", self.s_reveal, line=i))
+        else:
+            beats.append(Beat("hold", self.s_reveal, seconds=FLOW_REVEAL_HOLD))
+        if self.end_hold > 0:
+            beats.append(Beat("hold", self.s_reveal, seconds=self.end_hold))
+        return beats
+
+    def live(self, canvas, beat, t, dur) -> None:
+        if beat.sfx == "think":
+            for b in self.chip_boxes:
+                pulse(canvas, b, t, self.pal.accent, self.g.unit)
+
+    def hold_audio(self, beat, seconds):
+        if beat.sfx == "think" and self.ctx.cfg.video.model_extra.get("sfx", True):
+            return countdown_audio(seconds)
+        return None
+
+    def _cover_hidden(self, steps: list[int], sz: int) -> None:
+        """숨길 단계의 글 자리에 '?' 칩(단계 공개 때 같이 나옴) → 공개 단계에 칩이 사라지고 상자에 고리."""
+        pal, u = self.pal, self.g.unit
+        self.s_reveal = max(steps) + 1
+        self.basis_step = self.s_reveal
+        self.chip_boxes: list[Box] = []
+        for i in self.hidden:
+            lr, node = self.label_rects[i], self.node_rects[i]
+            cw = int(max(lr.w + u * 0.6, sz * 2.2))
+            ch = int(max(lr.h + u * 0.4, sz * 1.3))
+            inside = self.variant != 1          # 상자 안 글(0·2) — 번호 원 옆 글(1)은 폭 제한 없음
+            if inside and node.w > 0:
+                cw = min(cw, node.w - int(u * 0.4))
+            cx, cy = lr.x + lr.w / 2, lr.y + lr.h / 2
+            cb = Box(int(cx - cw / 2), int(cy - ch / 2), cw, ch)
+            self.chip_boxes.append(cb)
+            self.add(q_chip(self, cw, ch), cb.x, cb.y, show=steps[i], enter="pop", delay=0.3, z=4,
+                     keys={self.s_reveal: Key(alpha=0.0, delay=0.05, dur=0.35)})
+            rb = node if node.w > 0 else cb
+            e = int(u * 0.35)
+            rad = (rb.h // 2 if not inside else int(min(rb.w, rb.h) * 0.3)) + e
+            ring = D.rounded(rb.w + 2 * e, rb.h + 2 * e, rad, None, outline=pal.accent, width=max(5, u // 4))
+            self.add(D.plain(ring), rb.x - e, rb.y - e, show=self.s_reveal, enter="pop", delay=0.3, dur=0.45, z=5)
 
     def build(self) -> None:
         C, S, pal, u = self.content(), self.g.s, self.pal, self.g.unit
         labels = [str(s) for s in self.p["steps"]]
         m = len(labels)
         title = str(self.p.get("title") or "")
-        steps = self.spread(m, self.n, _lead(self, m, bool(title)))
+        self._hidden_phases()
+        lines = self.pre if self.hidden else self.n
+        steps = self.spread(m, lines, 1 if (title and lines > m) else 0)
+        self.node_steps = steps
+        self.label_rects: list[Box] = [Box(0, 0, 1, 1)] * m
+        self.node_rects: list[Box] = [Box(0, 0, 0, 0)] * m
         box = header(self, C)
         if title:
             tb = self.text(title, role="heavy", size=S.h2, min_size=S.body_min, max_w=box.w, max_lines=2, emph=pal.primary)
@@ -435,7 +525,9 @@ class Flow(SceneRenderer):
             _, box = box.take_top(tb.h, int(tb.size * 0.7))
         v = self.variant
         if v == 1:
-            self._dots(box, labels, steps)
+            sz = self._dots(box, labels, steps)
+            if self.hidden:
+                self._cover_hidden(steps, sz)
             return
         # 상자 + 화살표(가로는 한 줄 최대 4개, 넘치면 지그재그 / 세로는 한 줄 1개, 6개 이상이면 2열 지그재그)
         if self.g.portrait:
@@ -486,7 +578,9 @@ class Flow(SceneRenderer):
                 else:
                     img = D.icon_arrow(int(vgap - u), th, pal.accent if v == 0 else pal.primary, "down")
                     self.add(D.plain(img), pr.cx - img.width / 2, pr.b + u / 2, show=s, enter="wipe_down", dur=0.35)
+            self.node_rects[i] = rb
             if v == 0:
+                self.label_rects[i] = Box(int(rb.x + (rb.w - tb.w) / 2), int(rb.y + nb * 0.35 + (rb.h - nb * 0.35 - tb.h) / 2), tb.w, tb.h)
                 im = D.rounded(rb.w, rb.h, int(sz * 0.3), pal.surface, outline=pal.primary, width=3)
                 D.paste(im, tb.img, (rb.w - tb.w) / 2 - tb.ox, nb * 0.35 + (rb.h - nb * 0.35 - tb.h) / 2 - tb.oy)
                 sp = D.shadowed(im, blur=12, offset=(0, 6), alpha=0.1)
@@ -494,6 +588,7 @@ class Flow(SceneRenderer):
                 self.add(D.plain(badge(self, str(i + 1), nb, fill=pal.primary, color=pal.on_primary)), rb.cx - nb / 2, rb.y - nb / 2,
                          show=s, enter="pop", delay=0.4 if i else 0.2, z=2)
             else:
+                self.label_rects[i] = Box(int(rb.x + pad + nb + int(sz * 0.3) + (tw - tb.w) / 2), int(rb.y + (rb.h - tb.h) / 2), tb.w, tb.h)
                 tone = D.mix(pal.primary, pal.accent, 0.0 if m == 1 else i / (m - 1) * 0.35)
                 im = D.rounded(rb.w, rb.h, int(sz * 0.35), tone)
                 D.paste(im, badge(self, str(i + 1), nb, fill=D.rgba(pal.on_primary, 0.22), color=pal.on_primary), pad * 0.8,
@@ -501,8 +596,10 @@ class Flow(SceneRenderer):
                 D.paste(im, tb.img, pad + nb + int(sz * 0.3) + (tw - tb.w) / 2 - tb.ox, (rb.h - tb.h) / 2 - tb.oy)
                 sp = D.shadowed(im, blur=12, offset=(0, 6), alpha=0.16)
                 self.add(sp, rb.x, rb.y, show=s, enter="pop", delay=0.25 if i else 0.05, dur=0.45)
+        if self.hidden:
+            self._cover_hidden(steps, sz)
 
-    def _dots(self, box: Box, labels: list[str], steps: list[int]) -> None:
+    def _dots(self, box: Box, labels: list[str], steps: list[int]) -> int:
         """번호 원이 화살표로 이어지는 흐름(세로는 왼쪽 줄, 가로는 한 줄)."""
         S, pal, u = self.g.s, self.pal, self.g.unit
         m = len(labels)
@@ -530,9 +627,11 @@ class Flow(SceneRenderer):
                 self.add(D.plain(badge(self, str(i + 1), nb, fill=pal.primary, color=pal.on_primary)), x0, cy - nb / 2, show=s,
                          enter="pop", delay=0.25)
                 self.add(tb, x0 + nb + int(sz * 0.7), cy - tb.h / 2, show=s, enter="left", delay=0.35)
+                self.label_rects[i] = Box(int(x0 + nb + int(sz * 0.7)), int(cy - tb.h / 2), tb.w, tb.h)
+                self.node_rects[i] = Box(int(x0), int(cy - nb / 2), nb, nb)
                 prev = cy + nb / 2
                 y += h + gap
-            return
+            return sz
         cw = box.w // m
         sz = S.lead
         while True:
@@ -552,6 +651,9 @@ class Flow(SceneRenderer):
             self.add(D.plain(badge(self, str(i + 1), nb, fill=pal.primary, color=pal.on_primary)), cx - nb / 2, y, show=s, enter="pop",
                      delay=0.25)
             self.add(tb, cx - tb.w / 2, y + nb + sz * 0.8, show=s, enter="rise", delay=0.35)
+            self.label_rects[i] = Box(int(cx - tb.w / 2), int(y + nb + sz * 0.8), tb.w, tb.h)
+            self.node_rects[i] = Box(int(cx - nb / 2), int(y), nb, nb)
+        return sz
 
 
 # ---------------------------------------------------------------- bars

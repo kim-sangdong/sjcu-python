@@ -33,7 +33,7 @@ from studio.video import design as D
 from studio.video.design import Box, Fonts, Geometry, Palette, Sprite
 
 REGISTRY: dict[str, type["SceneRenderer"]] = {}
-SCENE_MODULES = ["basic", "quiz", "diagram", "media"]
+SCENE_MODULES = ["basic", "quiz", "diagram", "media", "exam"]
 
 LEAD_SECONDS = 0.35          # 장면 앞 전환 시간
 FIRST_LEAD_SECONDS = 0.15    # 첫 장면은 짧게(쇼츠 첫 1초가 중요)

@@ -190,3 +190,7 @@ app/android/
 app/ios/
 !app/src/lib/
 supabase/.temp/
+# 잠금 파일·리허설 산출물·시청자 원문(개인정보) — 커밋하지 않는다
+content/**/*.lock
+reports/*/metrics.dry-run.json
+content/comments/*/inbox.json

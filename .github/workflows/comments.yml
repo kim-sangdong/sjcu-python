@@ -1,0 +1,80 @@
+# 유튜브 댓글 답글 — 매일 21:00 KST(= 12:00 UTC). Claude 가 /yt-comment-reply 로 새 댓글을 모아 답글을 쓰고 올린다.
+# 댓글은 외부 사람이 쓴 글(프롬프트 주입 위험)이므로 이 작업에는 유튜브 비밀값만 넣고 도구를 좁힌다.
+name: comments
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # 매일 21:00 KST
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "리허설 — 답글을 올리지 않고 검사 결과만"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # content/comments/ 커밋(답글 장부·정정 목록)
+  issues: write # 실패 알림 이슈
+
+concurrency:
+  group: comments
+  cancel-in-progress: false
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONUNBUFFERED: "1"
+      PYTHONIOENCODING: utf-8
+      STUDIO_TOKEN_BACKEND: supabase
+      STUDIO_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: 패키지 설치
+        run: pip install -e .
+
+      - name: 명령 정하기
+        id: prep
+        run: |
+          args=""
+          if [ "${STUDIO_DRY_RUN:-}" = "1" ]; then args="--dry-run"; fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+
+      - name: Claude — /yt-comment-reply
+        uses: anthropics/claude-code-action@v1 # 확인: v1.0.248 (2026-10-09)
+        with:
+          prompt: "/yt-comment-reply ${{ steps.prep.outputs.args }}"
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: |
+            --max-turns 80
+            --allowedTools "Bash(python -m studio *),Bash(python3 -m studio *),Read,Write,Edit,Glob,Grep"
+            --disallowedTools "Read(//proc/**),Read(//home/runner/work/_temp/**)"
+            ${{ vars.CLAUDE_MODEL && format('--model {0}', vars.CLAUDE_MODEL) || '' }}
+
+      - name: 답글 기록 커밋·푸시
+        if: ${{ !cancelled() && env.STUDIO_DRY_RUN != '1' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci_commit_push.sh "comments $(TZ=Asia/Seoul date '+%Y-%m-%d')" content/comments
+
+      - name: 실패 알림
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci_failure_report.sh "comments"

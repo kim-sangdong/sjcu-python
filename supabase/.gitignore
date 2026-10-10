@@ -1,0 +1,10 @@
+# Supabase CLI 가 만드는 로컬 상태 — 커밋하지 않는다
+.branches
+.temp
+# 함수 비밀값(supabase/functions/.env) — 예시는 .env.example
+.env
+.env.*
+!.env.example
+functions/.env
+functions/.env.*
+!functions/.env.example

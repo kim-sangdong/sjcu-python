@@ -1,0 +1,34 @@
+{
+ "kind": "subject",
+ "schema_version": 1,
+ "version": "20261010-85d99c65",
+ "subject": "REG",
+ "name": "부동산공시법령",
+ "count": 1,
+ "items": [
+  {
+   "id": "Q-REG-8efdae6a",
+   "subject": "REG",
+   "unit": "등기의 효력",
+   "type": "ox",
+   "stem": "등기관이 등기를 마친 경우 그 등기는 등기를 마친 때부터 효력을 발생한다.",
+   "answer": false,
+   "explanation": "등기는 접수한 때부터 효력을 발생합니다. 함정: ‘접수한 때’를 ‘마친 때’로 바꿨습니다.",
+   "trap": "기간혼동",
+   "basis": [
+    {
+     "kind": "law",
+     "law_name": "부동산등기법",
+     "article": "제6조 제2항",
+     "effective_date": "2025-01-31",
+     "quote": "등기관이 등기를 마친 경우 그 등기는 접수한 때부터 효력을 발생한다.",
+     "badge": "[부동산등기법 제6조 제2항 · 2025.1.31 시행 기준]"
+    }
+   ],
+   "difficulty": 1,
+   "free": true,
+   "version": 1,
+   "updated_at": "2026-10-10T00:00:00+09:00"
+  }
+ ]
+}

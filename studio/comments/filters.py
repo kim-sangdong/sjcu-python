@@ -28,7 +28,7 @@ _DOMAIN_RE = re.compile(rf"(?i)(?<![a-z0-9@._-])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _PHONE_RE = re.compile(r"(?<!\d)(?:01[016789]|0\d{1,2})[-\s.]?\d{3,4}[-\s.]?\d{4}(?!\d)")
 _REPEAT_CHAR_RE = re.compile(r"(.)\1{9,}")                    # 같은 글자 10번 이상
-_REPEAT_WORD_RE = re.compile(r"(\S{2,})(?:\s*\1){3,}")         # 같은 낱말 4번 이상 연달아
+_REPEAT_WORD_RE = re.compile(r"(?<!\S)(\S{2,})(?:\s+\1){3,}(?!\S)")   # 같은 낱말 4번 이상 띄어 반복
 _BENIGN_REPEAT = set("ㅋㅎㅠㅜ.!?~^ㅡ-ㄷㄱ")                    # 웃음·감탄 반복은 스팸으로 보지 않는다
 _QUESTION_RE = re.compile(r"\?|까요|나요|가요|뭔가요|뭐예요|뭐에요|어떻게|왜요|궁금|알려\s*주")
 
@@ -82,8 +82,9 @@ def comment_flags(text: str, cfg: Config) -> list[str]:
         flags.append("link")
     rep = _REPEAT_CHAR_RE.search(text)
     heavy_repeat = bool(rep and rep.group(1) not in _BENIGN_REPEAT and not rep.group(1).isspace())
-    word_repeat = bool(_REPEAT_WORD_RE.search(text))
-    if rep or word_repeat:
+    wrep = _REPEAT_WORD_RE.search(text)
+    word_repeat = bool(wrep and not set(wrep.group(1)) <= _BENIGN_REPEAT)
+    if rep or wrep:
         flags.append("repeat")
     if phrase_hits(text, spam_phrases(cfg)):
         flags.append("spam_phrase")

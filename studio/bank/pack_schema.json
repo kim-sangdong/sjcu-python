@@ -1,0 +1,592 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio/bank/pack_schema.json",
+  "title": "함정노트 문제은행 앱 팩",
+  "description": "python -m studio bank export 가 만드는 앱용 문항 팩. manifest.json 과 과목별 <코드>.json. 앱은 bank/latest/manifest.json 을 읽고 subjects[].file 을 같은 버전 폴더(bank/<version>/)에서 받아 sha256 으로 확인한다. 정답 규칙: ox=boolean, mcq=정답 보기 인덱스(0부터), blank=문자열, order=choices 인덱스의 정답 순서, calc=숫자.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/manifest"
+    },
+    {
+      "$ref": "#/$defs/subjectPack"
+    }
+  ],
+  "$defs": {
+    "itemId": {
+      "type": "string",
+      "pattern": "^Q-(RE|CIV|BRK|PUB|REG|TAX)-[0-9a-f]{8}$"
+    },
+    "subjectCode": {
+      "type": "string",
+      "enum": [
+        "RE",
+        "CIV",
+        "BRK",
+        "PUB",
+        "REG",
+        "TAX"
+      ]
+    },
+    "packVersion": {
+      "type": "string",
+      "pattern": "^[0-9]{8}-[0-9a-f]{8}$"
+    },
+    "basis": {
+      "type": "object",
+      "required": [
+        "kind",
+        "badge"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "law",
+            "precedent",
+            "calc"
+          ]
+        },
+        "law_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "law_id": {
+          "type": "string"
+        },
+        "article": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effective_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "quote": {
+          "type": "string"
+        },
+        "case_no": {
+          "type": "string"
+        },
+        "decided_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "note": {
+          "type": "string"
+        },
+        "badge": {
+          "type": "string",
+          "minLength": 3,
+          "description": "화면 근거 배지. 예) [공인중개사법 제33조 제1항 · 2026.1.1 시행 기준]"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "law"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "law_name",
+              "article",
+              "effective_date"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "precedent"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "case_no",
+              "decided_at"
+            ]
+          }
+        }
+      ]
+    },
+    "alert": {
+      "type": "object",
+      "required": [
+        "kind",
+        "law_name",
+        "article",
+        "effective_date"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "upcoming_amendment"
+          ]
+        },
+        "law_name": {
+          "type": "string"
+        },
+        "article": {
+          "type": "string"
+        },
+        "effective_date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": [
+        "id",
+        "subject",
+        "unit",
+        "type",
+        "stem",
+        "answer",
+        "explanation",
+        "trap",
+        "basis",
+        "difficulty",
+        "free",
+        "version",
+        "updated_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/itemId"
+        },
+        "subject": {
+          "$ref": "#/$defs/subjectCode"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "ox",
+            "mcq",
+            "blank",
+            "order",
+            "calc"
+          ]
+        },
+        "stem": {
+          "type": "string",
+          "minLength": 4
+        },
+        "choices": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "answer": {
+          "type": [
+            "boolean",
+            "integer",
+            "number",
+            "string",
+            "array"
+          ]
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 4
+        },
+        "trap": {
+          "type": "string",
+          "enum": [
+            "숫자바꿈",
+            "주체바꿈",
+            "예외누락",
+            "기간혼동",
+            "요건혼동",
+            "용어혼동",
+            "기타"
+          ]
+        },
+        "basis": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/basis"
+          }
+        },
+        "difficulty": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "free": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/alert"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "ox"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "answer": {
+                "type": "boolean"
+              },
+              "choices": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mcq"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "choices"
+            ],
+            "properties": {
+              "answer": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "choices": {
+                "maxItems": 5
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "blank"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "answer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "choices": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "order"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "choices"
+            ],
+            "properties": {
+              "answer": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "calc"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "answer": {
+                "type": "number"
+              },
+              "choices": false
+            }
+          }
+        }
+      ]
+    },
+    "subjectPack": {
+      "type": "object",
+      "required": [
+        "kind",
+        "schema_version",
+        "version",
+        "subject",
+        "name",
+        "count",
+        "items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "subject"
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "version": {
+          "$ref": "#/$defs/packVersion"
+        },
+        "subject": {
+          "$ref": "#/$defs/subjectCode"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "required": [
+        "kind",
+        "schema_version",
+        "version",
+        "content_hash",
+        "generated_at",
+        "exam",
+        "disclaimer",
+        "free_daily",
+        "total",
+        "subjects",
+        "free_ids",
+        "decks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "manifest"
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "version": {
+          "$ref": "#/$defs/packVersion"
+        },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "과목 파일 sha256 들의 해시. 같으면 내용이 같다(다시 받을 필요 없음)."
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "exam": {
+          "type": "object",
+          "required": [
+            "name",
+            "round",
+            "next_exam_date"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "round": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "next_exam_date": {
+              "type": "string",
+              "format": "date"
+            },
+            "papers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "subjects",
+                  "questions"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "stage": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2
+                  },
+                  "subjects": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/subjectCode"
+                    }
+                  },
+                  "questions": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "disclaimer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "free_daily": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "code",
+              "name",
+              "file",
+              "count",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/subjectCode"
+              },
+              "name": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string",
+                "pattern": "^(RE|CIV|BRK|PUB|REG|TAX)\\.json$"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "free_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/itemId"
+          },
+          "description": "무료 덱(하루 20문항 풀) 문항. 영상 연동 덱(decks) 문항도 무료로 연다."
+        },
+        "decks": {
+          "type": "array",
+          "description": "영상 연동 덱: 콘텐츠 ID(utm_content 와 같은 값)별로 그 콘텐츠에 쓴 문항. 앱은 유입 링크의 utm_content 로 덱을 열고, 덱 문항은 무료로 보여 준다.",
+          "items": {
+            "type": "object",
+            "required": [
+              "asset_id",
+              "week",
+              "kind",
+              "items"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "pattern": "^[0-9]{4}W[0-9]{2}-[LSCB][0-9]{1,2}$"
+              },
+              "week": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-W[0-9]{2}$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "longform",
+                  "short",
+                  "cardnews",
+                  "blog"
+                ]
+              },
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/itemId"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -96,6 +96,7 @@ class CountdownMixin:
 @scene("quiz")
 class Quiz(CountdownMixin, SceneRenderer):
     required = ("question", "choices", "explanation")
+    basis_inline = True            # 근거 배지는 해설 상자 안에(exam.basis_badges 형식) — 아래 띠를 쓰지 않는다
 
     def validate(self) -> None:
         super().validate()
@@ -351,7 +352,9 @@ class Quiz(CountdownMixin, SceneRenderer):
         S, pal = self.g.s, self.pal
         lab = pill(self, "해설", size=int(S.small * 0.9), fill=pal.primary, color=pal.on_primary)
         ov = lab.height // 2
-        basis = str(self.p.get("basis") or "")
+        from studio.video.scenes.exam import inline_basis_text   # 순환 import 를 피해 여기서
+
+        basis = inline_basis_text(self)
         exp = str(self.p["explanation"])
         min_sz = S.body if probe else S.body_min
         sz = S.body
@@ -360,7 +363,7 @@ class Quiz(CountdownMixin, SceneRenderer):
             pad = int(sz * 0.5)
             tb = D.text_block(self.fonts, exp, size=sz, max_w=w - 2 * pad, color=pal.ink, emph=pal.primary, lh=1.32,
                               max_h=max_h, min_size=sz)
-            bb = D.text_block(self.fonts, f"근거 · {basis}", size=max(S.small, int(sz * 0.8)), max_w=w - 2 * pad,
+            bb = D.text_block(self.fonts, basis, size=max(S.small, int(sz * 0.8)), max_w=w - 2 * pad,
                               color=pal.ink2, max_lines=2) if basis else None
             card_h = ov + pad * 0.6 + tb.h + ((sz * 0.45 + 2 + sz * 0.3 + bb.h) if bb else 0) + pad
             return pad, tb, bb, card_h

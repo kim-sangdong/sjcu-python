@@ -18,10 +18,13 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from studio import paths
 from studio.config import MissingSecret, load_env
+
+if TYPE_CHECKING:
+    from google.oauth2.credentials import Credentials
 
 # ---------------------------------------------------------------- 상수 (공식 문서 변경 시 여기만 고친다)
 
@@ -119,8 +122,12 @@ def explain_refresh_error(err: Exception) -> str:
 _CACHE: dict[tuple[str, ...], Any] = {}
 
 
-def credentials(scopes: Sequence[str] | None = None):
-    """refresh 된 google.oauth2.credentials.Credentials. 같은 범위면 프로세스 안에서 재사용한다."""
+def credentials(scopes: Sequence[str] | None = None) -> Credentials:
+    """refresh 된 google.oauth2.credentials.Credentials. 같은 범위면 프로세스 안에서 재사용한다.
+
+    예외: MissingSecret(비밀값 없음), GoogleAuthError(만료·취소 — 사람이 재인증),
+          google.auth.exceptions.RefreshError(retryable)·TransportError(네트워크) — 잠시 뒤 재시도.
+    """
     from google.auth.exceptions import RefreshError
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials

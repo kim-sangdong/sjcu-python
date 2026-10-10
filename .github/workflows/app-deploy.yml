@@ -1,0 +1,84 @@
+# 앱 배포(/deploy 와 같은 판정): 네이티브 지문이 같은 완료 빌드가 있으면 OTA(eas update),
+# 없거나 force_build 면 스토어 빌드 + 자동 제출(eas build --auto-submit --no-wait).
+# 필요한 Secret: EXPO_TOKEN (https://expo.dev/settings/access-tokens)
+# 필요한 Variables: EAS_PROJECT_ID (선택: EAS_OWNER, APP_ANDROID_PACKAGE, APP_IOS_BUNDLE_ID, APP_LINK_DOMAIN)
+# 스토어 제출 자격 증명(Play 서비스 계정 키, App Store Connect API 키)은 EAS 서버에 한 번 등록해 둔다(docs/APP.md).
+name: app-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "업데이트/빌드 메시지(비우면 마지막 커밋 제목)"
+        required: false
+        default: ""
+        type: string
+      force_build:
+        description: "지문이 같아도 새 스토어 빌드"
+        required: false
+        default: false
+        type: boolean
+      platform:
+        description: "대상 플랫폼"
+        required: false
+        default: all
+        type: choice
+        options: [all, android, ios]
+      dry_run:
+        description: "리허설(무엇을 할지 출력만)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: app-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: EAS CLI 설치·로그인
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 의존성 설치
+        working-directory: app
+        run: npm ci --no-audit --no-fund
+
+      - name: 배포
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          # app.config.ts 가 읽는 빌드 설정(비밀 아님 → 저장소 Variables)
+          EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+          EAS_OWNER: ${{ vars.EAS_OWNER }}
+          APP_ANDROID_PACKAGE: ${{ vars.APP_ANDROID_PACKAGE }}
+          APP_IOS_BUNDLE_ID: ${{ vars.APP_IOS_BUNDLE_ID }}
+          APP_LINK_DOMAIN: ${{ vars.APP_LINK_DOMAIN }}
+          DEPLOY_MESSAGE: ${{ inputs.message }}
+          FORCE_BUILD: ${{ inputs.force_build }}
+          PLATFORM: ${{ inputs.platform }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=(--platform "$PLATFORM")
+          if [ "$FORCE_BUILD" = "true" ]; then args+=(--force-build); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$DEPLOY_MESSAGE" ]; then
+            bash scripts/deploy_app.sh "$DEPLOY_MESSAGE" "${args[@]}"
+          else
+            bash scripts/deploy_app.sh "${args[@]}"
+          fi

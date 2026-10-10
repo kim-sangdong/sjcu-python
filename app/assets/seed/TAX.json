@@ -1,0 +1,56 @@
+{
+ "kind": "subject",
+ "schema_version": 1,
+ "version": "20261010-85d99c65",
+ "subject": "TAX",
+ "name": "부동산세법",
+ "count": 2,
+ "items": [
+  {
+   "id": "Q-TAX-e926266c",
+   "subject": "TAX",
+   "unit": "취득세 신고·납부",
+   "type": "blank",
+   "stem": "매매로 부동산을 취득한 자는 그 취득한 날부터 (    ) 이내에 취득세를 신고하고 납부하여야 한다.",
+   "answer": "60일",
+   "explanation": "유상 취득의 일반 기한은 60일입니다. 상속·증여 등은 기한이 따로 정해져 있습니다. 함정: 양도소득세 예정신고 기한(2개월)과 섞어 냅니다.",
+   "trap": "기간혼동",
+   "basis": [
+    {
+     "kind": "law",
+     "law_name": "지방세법",
+     "article": "제20조 제1항",
+     "effective_date": "2026-01-01",
+     "badge": "[지방세법 제20조 제1항 · 2026.1.1 시행 기준]"
+    }
+   ],
+   "difficulty": 1,
+   "free": true,
+   "version": 1,
+   "updated_at": "2026-10-10T00:00:00+09:00"
+  },
+  {
+   "id": "Q-TAX-aa75af8a",
+   "subject": "TAX",
+   "unit": "양도소득세 신고",
+   "type": "ox",
+   "stem": "토지를 양도한 거주자는 양도일부터 2개월 이내에 양도소득과세표준 예정신고를 하여야 한다.",
+   "answer": false,
+   "explanation": "토지·건물은 양도일이 속하는 달의 말일부터 2개월 이내에 예정신고합니다. 함정: ‘양도일이 속하는 달의 말일부터’를 ‘양도일부터’로 바꿨습니다.",
+   "trap": "기간혼동",
+   "basis": [
+    {
+     "kind": "law",
+     "law_name": "소득세법",
+     "article": "제105조 제1항 제1호",
+     "effective_date": "2026-01-01",
+     "badge": "[소득세법 제105조 제1항 제1호 · 2026.1.1 시행 기준]"
+    }
+   ],
+   "difficulty": 2,
+   "free": true,
+   "version": 1,
+   "updated_at": "2026-10-10T00:00:00+09:00"
+  }
+ ]
+}
