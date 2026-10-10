@@ -1,0 +1,77 @@
+{
+  "id": "2026W42-L1",
+  "week": "2026-W42",
+  "format": "longform",
+  "title": "헷갈리는 맞춤법 한 번에 정리 — 되/돼, 안/않",
+  "description": "자주 틀리는 맞춤법을 원리부터 차근차근 정리합니다.",
+  "tags": ["맞춤법", "국어", "정리"],
+  "hashtags": ["맞춤법"],
+  "chapters": [
+    {
+      "title": "들어가며",
+      "scenes": [
+        {
+          "id": "t1",
+          "kind": "title",
+          "narration": ["오늘은 자주 틀리는 맞춤법 두 가지를 정리합니다.", "끝까지 보시면 다시는 헷갈리지 않으실 거예요."],
+          "params": {"title": "헷갈리는 맞춤법\n한 번에 정리", "subtitle": "되/돼, 안/않을 원리로 구분하기"}
+        },
+        {
+          "id": "b1",
+          "kind": "bullets",
+          "narration": [
+            "오늘 순서는 이렇습니다.",
+            "먼저 되와 돼를 구분하는 방법입니다.",
+            "다음은 안과 않입니다.",
+            "마지막으로 실제 문장으로 연습합니다."
+          ],
+          "params": {
+            "heading": "오늘 다룰 내용",
+            "items": ["되와 돼: '되어'로 바꿔 보기", "안과 않: '아니'와 '아니하'", "문장으로 연습하기"]
+          }
+        },
+        {
+          "id": "v1",
+          "kind": "voice",
+          "narration": ["저도 처음엔 이 둘이 정말 헷갈렸어요.", "그래서 제가 쓰는 방법을 그대로 알려 드릴게요."],
+          "params": {"audio": "assets/voice/test_voice.wav", "heading": "운영자의 한마디"}
+        }
+      ]
+    },
+    {
+      "title": "원리로 구분하기",
+      "scenes": [
+        {
+          "id": "ch2",
+          "kind": "chapter",
+          "narration": ["이제 원리를 하나씩 보겠습니다."],
+          "params": {"title": "원리로 구분하기"}
+        },
+        {
+          "id": "s1",
+          "kind": "sequence",
+          "narration": [
+            "헷갈릴 때는 이 순서대로 확인해 보세요.",
+            "정답 순서는 이렇습니다.",
+            "먼저 문장에서 되나 돼가 들어갈 자리를 찾습니다.",
+            "그 자리에 되어를 넣어 읽어 봅니다.",
+            "자연스러우면 돼, 어색하면 되를 씁니다."
+          ],
+          "params": {"items": ["자리 찾기", "'되어' 넣어 읽기", "자연스러우면 '돼'"]}
+        },
+        {
+          "id": "o1",
+          "kind": "outro",
+          "narration": ["오늘 내용이 도움이 되셨길 바랍니다."],
+          "params": {"headline": "다음 시간에는 '안'과 '않'을 연습합니다"}
+        }
+      ]
+    }
+  ],
+  "thumbnail": {"headline": "되/돼 아직도 헷갈리세요?", "subline": "원리 하나로 끝내는 맞춤법", "style": "bold", "params": {"highlight": "되/돼", "big": "3분"}},
+  "pinned_comment": "",
+  "cta": "",
+  "synthetic_media": true,
+  "made_for_kids": false,
+  "notes": "테스트 픽스처"
+}
