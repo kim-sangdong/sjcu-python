@@ -505,7 +505,7 @@ class Flow(SceneRenderer):
             e = int(u * 0.35)
             rad = (rb.h // 2 if not inside else int(min(rb.w, rb.h) * 0.3)) + e
             ring = D.rounded(rb.w + 2 * e, rb.h + 2 * e, rad, None, outline=pal.accent, width=max(5, u // 4))
-            self.add(D.plain(ring), rb.x - e, rb.y - e, show=self.s_reveal, enter="pop", delay=0.3, dur=0.45, z=5)
+            self.add(D.plain(ring), rb.x - e, rb.y - e, show=self.s_reveal, enter="pop", delay=0.3, dur=0.45, z=1)
 
     def build(self) -> None:
         C, S, pal, u = self.content(), self.g.s, self.pal, self.g.unit
@@ -518,7 +518,8 @@ class Flow(SceneRenderer):
         self.node_steps = steps
         self.label_rects: list[Box] = [Box(0, 0, 1, 1)] * m
         self.node_rects: list[Box] = [Box(0, 0, 0, 0)] * m
-        box = header(self, C)
+        # hidden(시험 '?' 흐름도)은 5~7단계라 자리가 귀하다: 제목이 있으면 자동 머리말(챕터 제목)을 뺀다(params.kicker 는 그대로)
+        box = C if (self.hidden and title and "kicker" not in self.p) else header(self, C)
         if title:
             tb = self.text(title, role="heavy", size=S.h2, min_size=S.body_min, max_w=box.w, max_lines=2, emph=pal.primary)
             self.add(tb, box.x, box.y, enter="left")
@@ -551,7 +552,8 @@ class Flow(SceneRenderer):
             vgap = arrow if (cols == 1 or rows_n > 1) else 0
             total = rows_n * bh + (rows_n - 1) * vgap + (nb / 2 if v == 0 else 0)
             if (total <= box.h and not any(tb.broke for tb in tbs)) or sz <= S.body_min:
-                break
+                if total <= box.h or sz <= S.small:     # 최소 크기에서도 넘치면 S.small 까지만 더 줄인다
+                    break
             sz -= 2
         if total > box.h:
             self.warn("단계가 많거나 길어 화면을 넘칩니다.")
@@ -611,11 +613,14 @@ class Flow(SceneRenderer):
                 tw = width - nb - int(sz * 0.7)
                 tbs = [D.text_block(self.fonts, t, size=sz, max_w=tw, color=pal.ink, emph=pal.primary, max_lines=3) for t in labels]
                 hs = [max(nb, tb.h) for tb in tbs]
-                gap = sz * 0.9
+                gap = sz * (0.9 if m <= 4 else 0.6)
                 total = sum(hs) + gap * (m - 1)
                 if (total <= box.h and not any(tb.broke for tb in tbs)) or sz <= S.body_min:
-                    break
+                    if total <= box.h or sz <= S.small:     # 최소 크기에서도 넘치면 S.small 까지만 더 줄인다
+                        break
                 sz -= 2
+            if total > box.h:
+                self.warn("단계가 많거나 길어 화면을 넘칩니다.")
             y = vcenter(total, box, 0.42)
             x0 = box.x if self.g.portrait else box.cx - width / 2
             prev = None
@@ -640,7 +645,8 @@ class Flow(SceneRenderer):
                                 max_lines=4, balance=True) for t in labels]
             total = nb + sz * 0.8 + max(tb.h for tb in tbs)
             if (total <= box.h and not any(tb.broke for tb in tbs)) or sz <= S.body_min:
-                break
+                if total <= box.h or sz <= S.small:     # 최소 크기에서도 넘치면 S.small 까지만 더 줄인다
+                    break
             sz -= 2
         y = vcenter(total, box, 0.42)
         for i, (tb, s) in enumerate(zip(tbs, steps)):

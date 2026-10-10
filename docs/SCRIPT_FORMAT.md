@@ -85,7 +85,12 @@ ID 는 채널별 추적 링크의 `utm_content` 값이 되어, 어떤 콘텐츠�
 | `cta` | `headline`, `body?` | 앱 안내 |
 | `outro` | `headline?` | 끝맺음 |
 
-실제 렌더러 동작은 `studio/video/scenes/` 가 기준이다. 표와 다르면 렌더러 쪽을 따른다.
+시험 대비용 장면 `ox`, `table_blank`, `relations`, `calc`, `diff`, `ranking`, `flow` 의 `hidden`, 모든 장면 공통 `basis`(근거 배지)와
+각 kind 의 정확한 단계 배분(예: quiz 는 `reveal_line` 또는 '정답'이 처음 나오는 문장에서 공개)은 **`docs/SCENES.md`** 에 있다.
+실제 렌더러 동작은 `studio/video/scenes/` 가 기준이다. 이 표와 다르면 SCENES.md 와 렌더러 쪽을 따른다.
+
+- 퀴즈·OX·빈칸·계산·순서 장면은 검증된 문제은행 문항에서 가져오고 `params.bank_id` 에 문항 ID 를 적는다(`docs/CONTENT_GUIDE.md` 5장).
+- 영상 quiz 와 문제은행 mcq 의 `answer` 는 **0부터** 센다.
 
 ## CardNews
 
@@ -99,14 +104,19 @@ ID 는 채널별 추적 링크의 `utm_content` 값이 되어, 어떤 콘텐츠�
     {"kind": "cover", "title": "표지 제목", "body": "부제"},
     {"kind": "body", "title": "소제목", "body": "본문 80자 안팎"},
     {"kind": "list", "title": "소제목", "body": "항목1\n항목2\n항목3"},
-    {"kind": "quiz", "title": "문제", "body": "", "params": {"choices": ["가", "나", "다"], "answer": 1}},
+    {"kind": "quiz", "title": "문제", "body": "", "params": {"choices": ["가", "나", "다"], "answer": "나"}},
     {"kind": "answer", "title": "정답: 나", "body": "해설"},
+    {"kind": "quiz", "title": "OX 지문", "body": "", "params": {"choices": ["O", "X"], "answer": "X", "basis": "[공인중개사법 제33조 제1항 · 2026.1.1 시행 기준]"}},
+    {"kind": "body", "title": "숫자 표", "body": "", "params": {"table": {"columns": ["구분", "기간"], "rows": [["가", "1년"], ["나", "2년"]]}}},
     {"kind": "cta", "title": "더 풀어 보기", "body": "프로필 링크의 앱에서"}
   ],
   "source_id": null
 }
 ```
 슬라이드는 2~10장.
+
+- **카드뉴스 quiz 의 answer 는 선택지 글 그대로 쓴다**(위 예시처럼 `"나"`, OX 는 `"O"`/`"X"`). 숫자로 쓰면 카드뉴스는 1부터 세므로, 0부터 세는 영상 quiz·문제은행 mcq 와 헷갈려 정답이 뒤집힐 수 있다.
+- 표 슬라이드는 body + `params.table`, 근거 배지는 `params.basis`. 자세한 레이아웃 규칙은 `studio/cardnews/layouts.py`·`studio/cardnews/exam.py` 상단 설명.
 
 ## BlogPost
 

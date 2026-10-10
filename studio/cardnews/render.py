@@ -54,7 +54,12 @@ def _texts(cfg: Config) -> dict[str, str]:
 
 
 def answer_index(answer: Any, choices: list[str], where: str) -> int:
-    """params.answer(1부터 번호, '③', 선택지 글) → 0부터 번호."""
+    """params.answer(1부터 번호, '③', 선택지 글) → 0부터 번호. OX 선택지는 exam.ox_answer 규칙("O"·"X"·true/false)."""
+    from studio.cardnews.exam import ox_answer
+
+    ox = ox_answer(answer, choices, where)
+    if ox is not None:
+        return ox
     n = len(choices)
     idx: int | None = None
     if isinstance(answer, bool):

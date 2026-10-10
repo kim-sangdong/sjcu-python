@@ -815,4 +815,7 @@ LAYOUTS: dict[str, list[Callable[[Slide], Canvas]]] = {
 
 
 def draw_slide(s: Slide) -> Canvas:
-    return LAYOUTS[s.kind][s.variant % len(LAYOUTS[s.kind])](s)
+    from studio.cardnews.exam import special_layout   # OX·숫자 표 장(params 로 고르는 레이아웃)
+
+    fn = special_layout(s) or LAYOUTS[s.kind][s.variant % len(LAYOUTS[s.kind])]
+    return fn(s)

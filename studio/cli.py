@@ -23,7 +23,9 @@ COMMAND_MODULES = [
     "studio.publish.cli",      # publish schedule | due | ...
     "studio.publish.auth_cli", # auth youtube | instagram | tiktok | tistory
     "studio.comments.cli",     # comments fetch | post
-    "studio.analytics.cli",    # analytics collect | report
+    "studio.analytics.cli",    # analytics collect | report | ad-data
+    "studio.bank.cli",         # bank add | verify | crosscheck | export | upload | watch-laws | mark-used | law
+    "studio.secrets_spec",     # secrets (필요한 비밀값 점검)
     "studio.pipeline",         # weekly prepare | finalize | status
 ]
 

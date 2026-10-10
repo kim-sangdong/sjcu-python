@@ -59,9 +59,25 @@ export function isSafeRelativePath(p: string): boolean {
   return !p.split('/').some((seg) => seg === '..' || seg === '' || seg === '.');
 }
 
-export function validateManifest(raw: unknown): ValidationResult<Manifest> {
+/**
+ * 문제은행 내보내기(studio/bank/export.py, pack_schema.json)는 decks 를
+ * [{asset_id, week, kind, items}] 배열로 쓴다. 앱 안에서는 asset_id → 항목 객체로 다룬다.
+ */
+function normalizeDecks(decks: unknown): unknown {
+  if (!Array.isArray(decks)) return decks;
+  const out: Record<string, DeckEntry> = {};
+  for (const d of decks) {
+    if (!isObj(d) || !isStr(d.asset_id) || !isStrArr(d.items)) return decks; // 형식 오류는 아래 검사가 잡게 그대로 둔다
+    out[d.asset_id] = { item_ids: d.items, ...(isStr(d.week) ? { published_at: d.week } : {}) };
+  }
+  return out;
+}
+
+export function validateManifest(input: unknown): ValidationResult<Manifest> {
   const errors: string[] = [];
-  if (!isObj(raw)) return { ok: false, errors: ['manifest: 객체가 아님'] };
+  if (!isObj(input)) return { ok: false, errors: ['manifest: 객체가 아님'] };
+  const raw: Record<string, unknown> =
+    input.decks === undefined ? input : { ...input, decks: normalizeDecks(input.decks) };
 
   if (!isStr(raw.version)) errors.push('manifest.version 없음');
   if (!isStr(raw.generated_at)) errors.push('manifest.generated_at 없음');

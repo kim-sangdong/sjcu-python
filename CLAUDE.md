@@ -8,13 +8,16 @@
 - `studio/` — 파이썬 패키지. `python -m studio --help` 로 명령 목록을 본다.
   - 원고 검증 `plan`, 렌더 `render video|cardnews|blog`, 독창성 검사 `check originality`·`archive add`,
     발행 `publish schedule|due|status|mark|retry|upload-media`, 인증 `auth <플랫폼>`, 댓글 `comments fetch|post`,
-    분석 `analytics collect|report|ad-data`, 주간 묶음 `weekly prepare|build|ship|status`, 점검 `doctor`.
-- `.claude/skills/` — 슬래시 명령어 10종. `/weekly-publish start` 가 한 주 전체를 돌린다.
+    분석 `analytics collect|report|ad-data`, 문제은행 `bank add|verify|crosscheck|list|export|upload|watch-laws|mark-used|law`,
+    주간 묶음 `weekly prepare|build|ship|status`, 점검 `doctor`·`secrets`.
+- `.claude/skills/` — 슬래시 명령어 11종(`/question-bank` 포함). `/weekly-publish start` 가 한 주 전체를 돌린다.
+- `content/bank/*.jsonl` — 문제은행(과목별). 퀴즈형 장면은 verified 문항만 쓴다.
 - `content/weeks/<주차>/` — 원고·계획·검사 결과·발행 대기열(JSON, 커밋 대상). 렌더 결과물은 `out/`(커밋 안 함).
 - `archive/index.json` — 발행한 콘텐츠의 지문. 독창성 검사가 과거와 비교할 때 쓴다.
 - `reports/<주차>/` — 성과·매출·광고 판단·전략 보고서.
 - `app/` — 앱(Expo). `supabase/` — 추적 링크·결제 웹훅·DB. `.github/workflows/` — 정기 실행.
 - `docs/CONTENT_GUIDE.md` — 채널 주제·형식·말투·금지 표현·검증 원천. **원고를 쓰기 전에 반드시 읽는다.**
+- `docs/SCENES.md` — 영상 장면 kind 별 params·단계 규칙. `docs/APP.md` — 앱 구조·출시 절차.
 - `docs/SCRIPT_FORMAT.md` — 원고 JSON 규격. `docs/SETUP.md` — 계정·키 준비. `docs/research/` — 구현 근거 조사.
 
 ## 규칙

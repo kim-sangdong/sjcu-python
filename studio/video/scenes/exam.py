@@ -21,11 +21,14 @@
                hook 이 있고 R≥2 이면 문장 0 은 훅만, 1..R-1 은 지문. 공개 뒤 문장은 [공개, 교정, 해설·근거] 에 차례로.
   table_blank  행 공개 단계(문장 N-B-H 개, 최소 1·최대 행 수) → 빈칸 B 개를 문장마다 하나씩 채움 → 강조(H=1).
                think>0 이면 빈칸마다 채우기 전에 think 초 동안 그 '?'가 깜박인다(째깍).
-  relations    인물(노드) 0 → 관계 화살표(문장마다 하나, 모자라면 묶음) → 질문 → 결론(+근거·강조 인물).
+  relations    인물(노드)+화살표 → 질문 → 결론(+근거·강조 인물). 문장 N≥E+3 이면 문장 0 은 인물만, 화살표는 문장마다 하나.
+               N<E+3 이면 인물은 첫 화살표와 같이, 화살표 E 개를 질문·결론 앞 N-2 문장에 나눈다.
   calc         조건 카드 0 → 수식 단계(문장마다 하나, 모자라면 묶음) → 정답 vs 흔한 오답 막대(+근거).
   diff         구법 0 → 신법 1 → 바뀐 부분 색 강조 2 → 시행일 타임라인 3. N 이 모자라면 구·신법을 묶고, 그다음 강조·타임라인을 묶는다.
   ranking      막대를 낮은 순위부터 하나씩(N-1 개 문장에 나눔) → focus 항목 확대 해설.
 레이아웃 변형 3벌은 asset_id+scene.id 해시로 고른다(params.variant 로 강제). 가로는 좌우 2단, 세로는 위아래로 쌓는다.
+머리말(kicker, 챕터 제목): 세로 자리를 아끼려고 ox(hook 있을 때)·table_blank·diff·ranking(title 있을 때)·relations·calc 는
+자동 머리말을 생략한다. params.kicker 를 직접 쓰면 항상 단다.
 """
 
 from __future__ import annotations
@@ -216,21 +219,23 @@ def basis_sprite(r: SceneRenderer, texts: list[str], max_w: int) -> Sprite:
     """근거 배지 띠(왼쪽 색 막대 + 배지 글 1~3줄 묶음). 한 줄에 안 들어가면 ' · ' 뒤에서 줄을 바꾼다."""
     S, pal = r.g.s, r.pal
     size = S.small
-    padx, pady = int(size * 0.5), int(size * 0.3)
+    padx, pady = int(size * 0.42), int(size * 0.28)
     bar = max(6, size // 7)
-    gap_bar = int(size * 0.42)
+    gap_bar = int(size * 0.38)
     inner = max_w - 2 * padx - bar - gap_bar
     blocks: list[D.TextBlock] = []
     if len(texts) > 3:
         r.warn("근거가 4개 이상이라 앞의 3개만 화면에 넣었습니다.")
     for t in texts[:3]:
-        cands = list(dict.fromkeys([t, shorten_badge(t)]))
-        one = next((c for c in cands if D.measure_lines(r.fonts, badge_markup(c), "bold", size, inner) <= 1), None)
+        # 한 줄 우선: 정식 명칭(글자 88%까지) → 약칭(글자 88%까지). 그래도 안 되면 약칭으로 ' · ' 뒤에서 두 줄
+        cands = [(c, sz) for c in dict.fromkeys([t, shorten_badge(t)]) for sz in (size, int(size * 0.94), int(size * 0.88))]
+        one = next(((c, sz) for c, sz in cands if D.measure_lines(r.fonts, badge_markup(c), "bold", sz, inner) <= 1), None)
         if one is not None:
-            tb = D.text_block(r.fonts, badge_markup(one), role="bold", size=size, color=pal.ink2, emph=pal.primary, max_w=inner,
+            tb = D.text_block(r.fonts, badge_markup(one[0]), role="bold", size=one[1], color=pal.ink2, emph=pal.primary, max_w=inner,
                               max_lines=1, lh=1.28)
         else:
-            tb = D.text_block(r.fonts, badge_markup(cands[-1], split=True), role="bold", size=size, min_size=int(size * 0.86),
+            cands = [(t, size), (shorten_badge(t), size)]
+            tb = D.text_block(r.fonts, badge_markup(cands[-1][0], split=True), role="bold", size=size, min_size=int(size * 0.86),
                               color=pal.ink2, emph=pal.primary, max_w=inner, max_lines=3, lh=1.28)
             if tb.overflow:
                 r.warn(f"근거 배지가 길어 줄였습니다: '{t[:30]}…'")
@@ -458,7 +463,7 @@ def label_pill(r: SceneRenderer, text: str, *, fill, color, size: int | None = N
 
 def note_card(r: SceneRenderer, text: str, w: int, max_h: float, *, label: str = "", accent=None, size: int | None = None) -> Sprite:
     """해설·결론 상자(왼쪽 색 막대 + 선택 이름표). 넘치면 글자를 줄이고 경고."""
-    S, pal, u = r.g.s, r.pal, r.g.unit
+    S, pal = r.g.s, r.pal
     sz = size or S.body
     lab = pill(r, label, size=int(S.small * 0.88), fill=accent or pal.primary, color=D.WHITE) if label else None
     ov = lab.height // 2 if lab else 0
@@ -498,6 +503,13 @@ def merge_groups(units: list[str], target: int, order: list[str]) -> list[list[s
                 groups[gi - 1] += groups.pop(gi)
                 break
     return groups
+
+
+def own_header(r: SceneRenderer, box: Box, *, has_own_title: bool) -> Box:
+    """머리말(kicker): params.kicker 를 쓰면 항상, 아니면 장면에 제목·훅이 없을 때만 챕터 제목을 단다(세로 자리 아끼기)."""
+    if "kicker" in r.p or not has_own_title:
+        return header(r, box)
+    return box
 
 
 def _sfx_on(r: SceneRenderer) -> bool:
@@ -806,7 +818,6 @@ class OX(CountdownMixin, SceneRenderer):
     def _explain(self, area: Box, y: float, show: int, *, replace: list[Item] | None = None) -> None:
         if not self.explanation or show is None:
             return
-        u = self.g.unit
         avail = area.b - y
         if replace is not None and avail < self.g.s.body * 2.6:
             for it in replace:
@@ -827,7 +838,7 @@ class OX(CountdownMixin, SceneRenderer):
 
     def _area_tiles(self, area: Box, cd_h: int, tile_h: int) -> None:
         """변형 1: 타이머 막대 + O·X 큰 단추 → 정답 단추만 채우고 다른 단추는 흐리게 → 해설이 단추 자리에."""
-        S, pal, u = self.g.s, self.pal, self.g.unit
+        pal, u = self.pal, self.g.unit
         group = cd_h + u + tile_h
         y = area.y if self.g.portrait else vcenter(group, area, 0.42)
         self.cd_box = Box(area.x, int(y), area.w, cd_h)
@@ -1135,13 +1146,13 @@ class Relations(SceneRenderer):
 
     def _phases(self) -> None:
         E, N = len(self.p["edges"]), self.n
-        if N >= E + 3:
+        if N >= E + 3:                       # 문장이 넉넉하면 첫 문장은 인물 소개만
             self.edge_steps = [1 + k for k in range(E)]
             q = E + 1
-        elif N >= 4:
-            avail = N - 3
-            self.edge_steps = [1 + s for s in self.spread(E, avail)]
-            q = 1 + avail
+        elif N >= 3:                         # 아니면 인물은 첫 화살표와 같이, 화살표는 질문·결론 앞 문장들에 나눠
+            avail = N - 2
+            self.edge_steps = self.spread(E, avail)
+            q = avail
         else:
             self.edge_steps = [0] * E
             q = 1
@@ -1167,31 +1178,44 @@ class Relations(SceneRenderer):
         S, pal, u = self.g.s, self.pal, self.g.unit
         v = self.variant
         C = self.content()
-        box = header(self, C)
+        box = own_header(self, C, has_own_title=True)
         q_text, c_text = str(self.p["question"]), str(self.p["conclusion"])
+        n = len(self.p["nodes"])
+        gap = int(u * 1.1)
+
+        def need_of(nodes) -> int:                    # 노드 줄 + 화살표·이름표 자리
+            nh = max(sp.h for sp, _, _ in nodes)
+            return int(nh * (1 if n == 2 else 2) + u * (3 if n == 2 else 4))
+
+        nodes = self._make_nodes(v, box)
+        need = need_of(nodes)
         if self.g.portrait:
-            qw = box.w
-            q_sp = self._qcard(q_text, qw, box.h * 0.26)
-            c_sp = note_card(self, c_text, qw, box.h * 0.3, label="결론", accent=pal.correct, size=S.body)
-            gap = int(u * 1.1)
-            stacked = (box.h - q_sp.h - c_sp.h - 2 * gap) >= box.h * 0.4
+            q_sp = self._qcard(q_text, box.w, box.h * 0.24)
+            c_sp = note_card(self, c_text, box.w, box.h * 0.5, label="결론", accent=pal.correct, size=S.body)
+            stacked = box.h - q_sp.h - c_sp.h - 2 * gap >= need
             cards_h = (q_sp.h + gap + c_sp.h) if stacked else max(q_sp.h, c_sp.h)
-            diag = Box(box.x, box.y, box.w, int(box.h - cards_h - gap))
+            if box.h - cards_h - gap < need:          # 그래도 좁으면 노드 글자를 줄인다
+                nodes = self._make_nodes(v, box, small=True)
+                need = need_of(nodes)
+            diag_h = int(min(box.h - cards_h - gap, need * 1.8))
+            y0 = vcenter(diag_h + gap + cards_h, box, 0.4)
+            diag = Box(box.x, int(y0), box.w, diag_h)
             qy = diag.b + gap
-            q_xy, c_xy = (box.x, qy), (box.x, qy + q_sp.h + gap if stacked else qy)
+            q_xy, c_xy = (box.x, qy), ((box.x, qy + q_sp.h + gap) if stacked else (box.x, qy))
         else:
             diag, right = box.split_x(0.58, int(u * 3))
-            q_sp = self._qcard(q_text, right.w, right.h * 0.42)
-            c_sp = note_card(self, c_text, right.w, right.h * 0.52, label="결론", accent=pal.correct, size=S.body)
-            gap = int(u * 1.2)
+            q_sp = self._qcard(q_text, right.w, right.h * 0.4)
+            c_sp = note_card(self, c_text, right.w, right.h * 0.55, label="결론", accent=pal.correct, size=S.body)
             stacked = q_sp.h + gap + c_sp.h <= right.h
             tot = (q_sp.h + gap + c_sp.h) if stacked else max(q_sp.h, c_sp.h)
             yy = vcenter(tot, right, 0.42)
-            q_xy, c_xy = (right.x, yy), (right.x, yy + q_sp.h + gap if stacked else yy)
+            q_xy, c_xy = (right.x, yy), ((right.x, yy + q_sp.h + gap) if stacked else (right.x, yy))
+            if diag.h > need * 1.9:
+                diag = Box(diag.x, int(diag.y + (diag.h - need * 1.9) * 0.42), diag.w, int(need * 1.9))
         qkeys = {} if stacked else {self.s_c: Key(alpha=0.0, dur=0.3)}
         self.add(q_sp, *q_xy, show=self.s_q, enter="rise", delay=0.05, z=4, keys=qkeys)
         self.add(c_sp, *c_xy, show=self.s_c, enter="rise", delay=0.3 if not stacked else 0.1, z=5)
-        self._diagram(diag, v)
+        self._diagram(diag, v, nodes)
         place_basis(self, show=self.s_c, delay=0.6)
 
     def _qcard(self, text: str, w: int, max_h: float) -> Sprite:
@@ -1212,11 +1236,12 @@ class Relations(SceneRenderer):
         S, pal, u = self.g.s, self.pal, self.g.unit
         label, sub = str(n["label"]), str(n.get("sub") or "")
         if v == 1:
-            d = int(max(S.hero * 1.05, min(max_w, D.text_block(self.fonts, label, role="heavy", size=sz, color=pal.ink, max_w=max_w * 2,
+            d = int(max(S.hero * 0.95, min(max_w, D.text_block(self.fonts, label, role="heavy", size=sz, color=pal.ink, max_w=max_w * 2,
                                                                             max_lines=1).w + sz * 0.9)))
             tb = D.text_block(self.fonts, label, role="heavy", size=sz, color=D.WHITE if hl else pal.primary, max_w=d - int(sz * 0.5),
                               max_lines=2, align="center", balance=True)
-            sb = D.text_block(self.fonts, sub, role="bold", size=S.small, color=pal.ink2, max_w=max_w, max_lines=1, align="center") if sub else None
+            sb = D.text_block(self.fonts, sub, role="bold", size=int(S.small * 0.9), color=pal.ink2, max_w=max_w, max_lines=1,
+                              align="center") if sub else None
             W = max(d, sb.w if sb else 0)
             H = d + ((int(S.small * 0.3) + sb.h) if sb else 0)
             im = D.blank(W, H)
@@ -1228,13 +1253,16 @@ class Relations(SceneRenderer):
             sp = D.shadowed(im, blur=12, offset=(0, 5), alpha=0.12)
             sp.meta["anchor"] = d / 2          # 원 중심의 세로 위치(그림 위 기준)
             return sp, ("circle", d / 2 + u * 0.3, 0)
+        # 이름과 역할을 한 줄에: [갑  매도인] (세로 자리를 아껴 노드 사이 화살표·이름표 자리를 넓힌다)
         fg = D.WHITE if (v == 2 or hl) else pal.ink
-        tb = D.text_block(self.fonts, label, role="heavy", size=sz, color=fg, max_w=max_w - int(sz * 0.9), max_lines=2, align="center", balance=True)
-        sb = D.text_block(self.fonts, sub, role="bold", size=S.small, color=D.mix(fg, pal.primary, 0.25) if v == 2 or hl else pal.ink2,
-                          max_w=max_w - int(sz * 0.9), max_lines=1, align="center") if sub else None
-        padx, pady = int(sz * 0.45), int(sz * 0.3)
-        W = int(max(tb.w, sb.w if sb else 0, sz * 1.6) + 2 * padx)
-        H = int(tb.h + ((sb.h) if sb else 0) + 2 * pady)
+        sub_c = D.mix(fg, pal.primary, 0.25) if (v == 2 or hl) else pal.ink2
+        padx, pady = int(sz * 0.5), int(sz * 0.26)
+        sgap = int(sz * 0.3)
+        sb = D.text_block(self.fonts, sub, role="bold", size=int(S.small * 0.9), color=sub_c, max_w=int(max_w * 0.55), max_lines=1) if sub else None
+        tb = D.text_block(self.fonts, label, role="heavy", size=sz, color=fg, max_w=max_w - 2 * padx - ((sb.w + sgap) if sb else 0),
+                          max_lines=2, align="center", balance=True)
+        W = int(max(tb.w + ((sb.w + sgap) if sb else 0), sz * 1.6) + 2 * padx)
+        H = int(max(tb.h, sb.h if sb else 0) + 2 * pady)
         if v == 2:
             fill, outline, bw = (pal.correct if hl else pal.primary), None, 0
             rad = H // 2
@@ -1242,49 +1270,53 @@ class Relations(SceneRenderer):
             fill = D.mix(pal.correct, D.WHITE, 0.0) if hl else pal.surface
             outline, bw, rad = (pal.correct if hl else pal.primary), 4, int(u * 0.6)
         im = D.rounded(W, H, rad, fill, outline=outline, width=bw)
-        D.paste(im, tb.img, (W - tb.w) / 2 - tb.ox, pady - tb.oy)
+        cw = tb.w + ((sb.w + sgap) if sb else 0)
+        x0 = (W - cw) / 2
+        D.paste(im, tb.img, x0 - tb.ox, (H - tb.h) / 2 - tb.oy)
         if sb:
-            D.paste(im, sb.img, (W - sb.w) / 2 - sb.ox, pady + tb.h - sb.oy)
+            D.paste(im, sb.img, x0 + tb.w + sgap - sb.ox, (H - sb.h) / 2 - sb.oy)
         sp = D.shadowed(im, blur=12, offset=(0, 5), alpha=0.14)
         sp.meta["anchor"] = H / 2
         return sp, ("rect", W / 2 + u * 0.3, H / 2 + u * 0.3)
 
-    def _diagram(self, area: Box, v: int) -> None:
-        S, pal, u = self.g.s, self.pal, self.g.unit
+    def _make_nodes(self, v: int, box: Box, *, small: bool = False) -> list[tuple[Sprite, tuple[str, float, float], dict]]:
+        S = self.g.s
         nodes = [dict(n, id=str(n["id"])) for n in self.p["nodes"]]
+        n = len(nodes)
+        self._node_sz = S.body if (n <= 3 and not small) else S.small
+        self._node_maxw = int(box.w * (0.42 if n <= 3 else 0.3) * (1.0 if self.g.portrait else 0.6))
+        out = []
+        for nd in nodes:
+            sp, shp = self._node_sprites(nd, v, self._node_sz, self._node_maxw, False)
+            out.append((sp, shp, nd))
+        return out
+
+    def _diagram(self, area: Box, v: int, nodes) -> None:
+        S, pal, u = self.g.s, self.pal, self.g.unit
         edges = self.p["edges"]
         hl = {str(h) for h in (self.p.get("highlight") or [])}
         n = len(nodes)
-        sz = S.lead if n <= 3 else S.body
-        max_w = int(area.w * (0.42 if n <= 4 else 0.3))
-        sprites, shapes = [], []
-        for nd in nodes:
-            sp, shp = self._node_sprites(nd, v, sz, max_w, False)
-            sprites.append(sp)
-            shapes.append(shp)
-        nw = max(sp.w for sp in sprites)
-        nh = max(sp.h for sp in sprites)
+        nw = max(sp.w for sp, _, _ in nodes)
+        nh = max(sp.h for sp, _, _ in nodes)
         layout = _NODE_LAYOUT.get(n, _NODE_LAYOUT[6])
         centers: dict[str, tuple[float, float]] = {}
-        for k, nd in enumerate(nodes):
+        shapes: dict[str, tuple[str, float, float]] = {}
+        taken: list[Box] = []                          # 노드·이름표 자리(이름표끼리·노드와 겹치지 않게)
+        for k, (sp, shp, nd) in enumerate(nodes):
             fx, fy = nd.get("at") or layout[k]
             cx = area.x + nw / 2 + fx * max(0, area.w - nw)
-            cy = area.y + nh / 2 + fy * max(0, area.h - nh)
-            centers[nd["id"]] = (cx, cy)
-        # 노드
-        for k, nd in enumerate(nodes):
-            sp = sprites[k]
-            cx, cy = centers[nd["id"]]
+            top = area.y + fy * max(0, area.h - nh)
+            y = top + (nh - sp.h) / 2
             anchor = sp.meta["anchor"]
-            x, y = cx - sp.w / 2, cy - anchor
-            y = max(area.y, min(area.b - sp.h, y))
             centers[nd["id"]] = (cx, y + anchor)
+            shapes[nd["id"]] = shp
             keys = {}
             if nd["id"] in hl:
-                hsp, _ = self._node_sprites(nd, v, sz, max_w, True)
+                hsp, _ = self._node_sprites(nd, v, self._node_sz, self._node_maxw, True)
                 keys[self.s_c] = Key(sprite=hsp, dur=0.4, delay=0.15)
-            self.add(sp, x, y, show=0, enter="pop", delay=0.1 + 0.15 * k, dur=0.45, z=3, keys=keys)
-        # 화살표
+            self.add(sp, cx - sp.w / 2, y, show=0, enter="pop", delay=0.1 + 0.15 * k, dur=0.45, z=3, keys=keys)
+            taken.append(Box(int(cx - sp.w / 2), int(y), sp.w, sp.h))
+        # 화살표 + 이름표
         thick = max(5, int(u * 0.24))
         color = pal.ink2 if v == 0 else pal.primary
         pair_count: dict[frozenset, int] = {}
@@ -1293,24 +1325,24 @@ class Relations(SceneRenderer):
             pair_count[key] = pair_count.get(key, 0) + 1
         seen: dict[frozenset, int] = {}
         group_k: dict[int, int] = {}
-        id_index = {nd["id"]: k for k, nd in enumerate(nodes)}
         for j, e in enumerate(edges):
             a, b = str(e["from"]), str(e["to"])
             key = frozenset((a, b))
             idx = seen.get(key, 0)
             seen[key] = idx + 1
+            cnt = pair_count[key]
             p0, p1 = centers[a], centers[b]
             L = max(1e-6, math.hypot(p1[0] - p0[0], p1[1] - p0[1]))
             dx, dy = (p1[0] - p0[0]) / L, (p1[1] - p0[1]) / L
-            px = py = 0.0
-            if pair_count[key] > 1:            # 같은 두 노드 사이 여러 화살표: 정렬한 id 방향 기준으로 나란히 벌린다
-                ca, cb = sorted((a, b))
-                q0, q1 = centers[ca], centers[cb]
-                cl = max(1e-6, math.hypot(q1[0] - q0[0], q1[1] - q0[1]))
-                off = (idx - (pair_count[key] - 1) / 2) * u * 2.2
-                px, py = -(q1[1] - q0[1]) / cl * off, (q1[0] - q0[0]) / cl * off
-            ta = _exit(shapes[id_index[a]], dx, dy)
-            tb_ = _exit(shapes[id_index[b]], -dx, -dy)
+            ca, cb = sorted((a, b))                    # 같은 두 노드 사이 화살표는 정렬한 id 방향 기준으로 나란히
+            q0, q1 = centers[ca], centers[cb]
+            cl = max(1e-6, math.hypot(q1[0] - q0[0], q1[1] - q0[1]))
+            cdx, cdy = (q1[0] - q0[0]) / cl, (q1[1] - q0[1]) / cl
+            k_off = idx - (cnt - 1) / 2
+            off = k_off * u * 2.2
+            px, py = -cdy * off, cdx * off
+            ta = _exit(shapes[a], dx, dy)
+            tb_ = _exit(shapes[b], -dx, -dy)
             s0 = (p0[0] + px + dx * ta, p0[1] + py + dy * ta)
             s1 = (p1[0] + px - dx * tb_, p1[1] + py - dy * tb_)
             if math.hypot(s1[0] - s0[0], s1[1] - s0[1]) < thick * 6:
@@ -1327,10 +1359,35 @@ class Relations(SceneRenderer):
             if lab:
                 lp = pill(self, lab, size=int(S.small * 0.92), fill=pal.bg, color=pal.ink, outline=color, width=3, role="bold",
                           max_w=int(area.w * 0.5))
-                mx, my = (s0[0] + s1[0]) / 2, (s0[1] + s1[1]) / 2
-                lx = max(area.x, min(area.r - lp.width, mx - lp.width / 2))
-                ly = max(area.y, min(area.b - lp.height, my - lp.height / 2))
-                self.add(D.plain(lp), lx, ly, show=st, enter="pop", delay=d0 + 0.4, dur=0.4, z=2)
+                # 자리 후보: 선 가운데 → 앞뒤로 조금씩, 선 위(나란한 화살표는 각자 바깥쪽 먼저) → 노드·다른 이름표와 안 겹치는 첫 자리
+                sgn = (1 if k_off > 0 else -1) if cnt > 1 else 1
+                nx, ny = -cdy * sgn, cdx * sgn
+                ext = abs(nx) * lp.width / 2 + abs(ny) * lp.height / 2 + u * 0.3
+                offs = (ext, 0.0, -ext, 1.7 * ext, -1.7 * ext) if cnt > 1 else (0.0, ext, -ext, 1.7 * ext, -1.7 * ext)
+                best, best_hit = None, None
+                for off in offs:
+                    for t in (0.5, 0.38, 0.62, 0.28, 0.72, 0.2, 0.8):
+                        mx = s0[0] + (s1[0] - s0[0]) * t + nx * off
+                        my = s0[1] + (s1[1] - s0[1]) * t + ny * off
+                        lb = Box(int(max(area.x, min(area.r - lp.width, mx - lp.width / 2))),
+                                 int(max(area.y - lp.height * 0.3, min(area.b - lp.height * 0.7, my - lp.height / 2))), lp.width, lp.height)
+                        hit = sum(_overlap(lb, o) for o in taken)
+                        if best_hit is None or hit < best_hit:
+                            best, best_hit = lb, hit
+                        if hit == 0:
+                            break
+                    if best_hit == 0:
+                        break
+                taken.append(best)
+                self.add(D.plain(lp), best.x, best.y, show=st, enter="pop", delay=d0 + 0.4, dur=0.4, z=4)
+
+
+def _overlap(a: Box, b: Box) -> int:
+    """두 상자가 겹치는 넓이(조금 띄운 여백 포함)."""
+    m = 6
+    w = min(a.r + m, b.r) - max(a.x - m, b.x)
+    h = min(a.b + m, b.b) - max(a.y - m, b.y)
+    return max(0, w) * max(0, h)
 
 
 def _exit(shape: tuple[str, float, float], dx: float, dy: float) -> float:
@@ -1397,11 +1454,11 @@ class Calc(SceneRenderer):
 
     def build(self) -> None:
         self._phases()
-        S, pal, u = self.g.s, self.pal, self.g.unit
+        S, u = self.g.s, self.g.unit
         v = self.variant
         unit = str(self.p.get("unit") or "")
         C = self.content()
-        box = header(self, C)
+        box = own_header(self, C, has_own_title=True)
         conds = [str(c) for c in self.p["conditions"]]
         steps = [str(s) for s in self.p["steps"]]
         portrait = self.g.portrait
@@ -1410,7 +1467,8 @@ class Calc(SceneRenderer):
         else:
             left, right = box.split_x(0.56, int(u * 3))
         gap = int(u * 1.2)
-        cond_sp = self._cond(conds, left.w, left.h * (0.34 if portrait else 0.42), v)
+        steps_est = len(steps) * int(S.lead * 1.36 + S.lead * 0.35)
+        cond_sp = self._cond(conds, left.w, max(left.h * 0.3, left.h - steps_est - gap), v)
         bars_items = self._bars_data(unit)
         bars_h_est = self._bars_height(bars_items, right.w)
         collapse = False
@@ -1453,32 +1511,35 @@ class Calc(SceneRenderer):
         place_basis(self, show=self.s_bars, delay=0.8)
 
     def _cond(self, conds: list[str], w: int, max_h: float, v: int) -> Sprite:
+        """조건 카드('조건' 이름표는 위 테두리에 걸침)."""
         S, pal, u = self.g.s, self.pal, self.g.unit
-        sz = S.body
-        lab = pill(self, "조건", size=int(S.small * 0.88), fill=pal.primary if v != 2 else pal.accent, color=pal.on_primary if v != 2 else pal.ink)
-        pad = int(u * 1.0)
         dark = v == 2
+        lab = pill(self, "조건", size=int(S.small * 0.88), fill=pal.accent if dark else pal.primary, color=pal.ink if dark else pal.on_primary)
+        ov = lab.height // 2
+        pad = int(u * 0.9)
+        sz = S.body
         while True:
-            tbs = [D.text_block(self.fonts, f"· {c}" if v != 0 else c, size=sz, max_w=w - 2 * pad - (int(sz * 0.9) if v == 0 else 0),
+            dot = int(sz * 0.9) if v == 0 else 0
+            tbs = [D.text_block(self.fonts, c if v == 0 else f"· {c}", size=sz, max_w=w - 2 * pad - dot, lh=1.3,
                                 color=pal.on_primary if dark else pal.ink, emph=pal.accent if dark else pal.primary, max_lines=2) for c in conds]
-            inner = sum(t.h for t in tbs) + int(sz * 0.2) * (len(tbs) - 1)
-            H = int(lab.height + u * 0.6 + inner + 2 * pad)
-            if H <= max_h or sz <= S.small:
+            lg = int(sz * 0.12)
+            inner = sum(t.h for t in tbs) + lg * (len(tbs) - 1)
+            H = int(ov + pad * 0.5 + inner + pad)
+            if (H + ov <= max_h and not any(t.broke for t in tbs)) or sz <= S.small:
                 break
             sz -= 2
-        if H > max_h:
+        if H + ov > max_h:
             self.warn("조건이 많거나 길어 카드가 큽니다 — 조건을 줄이세요.")
         fill = pal.primary if dark else (pal.surface if v == 0 else pal.primary_soft)
-        im = D.rounded(w, H, u, fill, outline=pal.line if v == 0 else None, width=2 if v == 0 else 0)
-        D.paste(im, lab, pad, pad)
-        y = pad + lab.height + u * 0.6
+        im = D.blank(w, H + ov)
+        D.paste(im, D.rounded(w, H, u, fill, outline=pal.line if v == 0 else None, width=2 if v == 0 else 0), 0, ov)
+        D.paste(im, lab, pad, 0)
+        y = ov + ov + pad * 0.5
         for t in tbs:
             if v == 0:
-                D.paste(im, D.ellipse(int(sz * 0.32), int(sz * 0.32), pal.accent), pad + sz * 0.1, y + t.line_h / 2 - sz * 0.16)
-                D.paste(im, t.img, pad + int(sz * 0.9) - t.ox, y - t.oy)
-            else:
-                D.paste(im, t.img, pad - t.ox, y - t.oy)
-            y += t.h + int(sz * 0.2)
+                D.paste(im, D.ellipse(int(sz * 0.3), int(sz * 0.3), pal.accent), pad + sz * 0.1, y + t.line_h / 2 - sz * 0.15)
+            D.paste(im, t.img, pad + dot - t.ox, y - t.oy)
+            y += t.h + lg
         return D.shadowed(im, blur=12, offset=(0, 5), alpha=0.12 if v != 1 else 0.0)
 
     def _steps(self, steps: list[str], w: int, max_h: float, v: int, *, quiet: bool = False) -> tuple[list[Sprite], int, bool]:
@@ -1527,12 +1588,19 @@ class Calc(SceneRenderer):
             items.append((str(d["label"]), val, str(d.get("text") or fmt_num(val, unit)), False))
         return items
 
-    def _bars_height(self, items, w: int) -> int:
+    def _bar_dims(self) -> tuple[int, int, int, int]:
+        """막대 줄 치수(이름표 글자, 값 글자, 막대 높이, 줄 간격)."""
         S = self.g.s
+        vsz = S.body
+        return S.small, vsz, int(vsz * 0.8), int(vsz * 0.35)
+
+    def _bars_height(self, items, w: int) -> int:
+        S, u = self.g.s, self.g.unit
         if len(items) == 1:
-            return int(S.hero * 1.0 + S.small * 1.36 + self.g.unit * 2.4)
-        row = S.small * 1.36 + S.body * 0.25 + S.body * 1.0
-        return int(row * len(items) + S.body * 0.5 * (len(items) - 1))
+            return int(S.hero * 1.36 + S.body * 1.92 + u * 3.0)
+        lsz, vsz, bar_h, gapr = self._bar_dims()
+        row = int(lsz * 1.36) + int(vsz * 0.15) + bar_h
+        return row * len(items) + gapr * (len(items) - 1)
 
     def _place_bars(self, items, area: Box, unit: str) -> None:
         S, pal, u = self.g.s, self.pal, self.g.unit
@@ -1551,23 +1619,25 @@ class Calc(SceneRenderer):
             self.add(sp, area.x + (area.w - W) / 2 if not self.g.portrait else area.x, vcenter(H, area, 0.3), show=st, enter="pop", delay=0.2,
                      dur=0.5, z=3)
             return
+        lsz, vsz, bar_h, gapr = self._bar_dims()
         vmax = max(max(abs(v) for _, v, _, _ in items), 1e-9)
-        lsz, vsz = S.small, S.body
         val_w = int(max(self.fonts.get("heavy", vsz).getlength(t) for _, _, t, _ in items) + u)
-        bar_h = int(vsz * 1.0)
         rows = []
         for label, val, text, ok in items:
             lb = D.text_block(self.fonts, label, role="bold", size=lsz, max_w=area.w, max_lines=1, color=pal.correct if ok else pal.ink2)
+            if lb.overflow:
+                self.warn(f"오답 이름표 '{label[:20]}…' 가 길어 줄였습니다.")
             rows.append((lb, val, text, ok))
-        row_h = [int(lb.h + vsz * 0.25 + bar_h) for lb, _, _, _ in rows]
-        gapr = int(vsz * 0.5)
+        row_h = [int(lsz * 1.36) + int(vsz * 0.15) + bar_h for _ in rows]
         total = sum(row_h) + gapr * (len(rows) - 1)
+        if total > area.h + 2:
+            self.warn("정답·오답 막대가 화면을 넘칩니다 — 오답을 줄이거나 수식 단계를 줄이세요.")
         y = vcenter(total, area, 0.35)
         bar_area = area.w - val_w - int(u * 0.6)
         for k, ((lb, val, text, ok), rh) in enumerate(zip(rows, row_h)):
             d0 = 0.15 + 0.3 * k
             self.add(lb, area.x, y, show=st, enter="fade", delay=d0, z=2)
-            by = y + lb.h + vsz * 0.25
+            by = y + int(lsz * 1.36) + int(vsz * 0.15)
             bw = max(int(bar_h * 0.8), int(bar_area * abs(val) / vmax))
             col = pal.correct if ok else D.mix(pal.muted, pal.bg, 0.1)
             self.add(D.plain(D.rounded(bw, bar_h, bar_h // 3, col)), area.x, by, show=st, enter="wipe", delay=d0 + 0.1, dur=0.75, z=2)
@@ -1619,7 +1689,7 @@ class Diff(SceneRenderer):
             units.append("hl")
         if self.eff:
             units.append("tl")
-        groups = merge_groups(units, self.n, ["after", "tl", "hl"])
+        groups = merge_groups(units, max(self.n, min(2, len(units))), ["after", "tl", "hl"])   # 바뀐 부분 공개는 적어도 한 단계 뒤에
         self.step_of = {name: k for k, g in enumerate(groups) for name in g}
         self.T = len(groups)
 
@@ -1655,49 +1725,57 @@ class Diff(SceneRenderer):
     def build(self) -> None:
         self._phases()
         S, pal, u = self.g.s, self.pal, self.g.unit
-        v = self.variant
         C = self.content()
-        box = header(self, C)
         title = str(self.p.get("title") or "")
+        box = own_header(self, C, has_own_title=bool(title))
         if title:
             tt = self.text(title, role="heavy", size=S.h2, min_size=S.body_min, max_w=box.w, max_lines=2, emph=pal.primary)
             self.add(tt, box.x, box.y, show=0, enter="left")
-            _, box = box.take_top(tt.h, int(tt.size * 0.7))
+            _, box = box.take_top(tt.h, int(tt.size * 0.6))
         bf, af = self.p["before"], self.p["after"]
         b_text, a_text = str(bf["text"]), str(af["text"])
         b_mark, nb = self._marked(b_text)
         a_mark, na = self._marked(a_text)
         if self.changed and nb + na == 0:
             self.warn("changed 의 글 조각이 before·after 어디에도 없어 강조를 못 했습니다.")
-        tl_h = int(S.small * 1.4 * 2 + u * 2.2) if self.eff else 0
+        tl_h = self._timeline_height() if self.eff else 0
         area = Box(box.x, box.y, box.w, int(box.h - (tl_h + u * 1.2 if tl_h else 0)))
-        arrow = int(u * 2.6)
-        if self.g.portrait:
-            cw, ch_max = area.w, (area.h - arrow) / 2
-        else:
-            cw, ch_max = (area.w - arrow) // 2, area.h
         b_lab = str(bf.get("label") or "개정 전")
         a_lab = str(af.get("label") or "개정 후")
-        sz = S.lead
-        while True:
-            b0 = self._card(b_lab, b_text, cw, sz, old=True, marked=None)
-            a0 = self._card(a_lab, a_text, cw, sz, old=False, marked=None)
-            if (max(b0.h, a0.h) <= ch_max and not b0.meta["broke"] and not a0.meta["broke"]) or sz <= S.body_min:
-                break
-            sz -= 2
-        if max(b0.h, a0.h) > ch_max:
+
+        def fit(side: bool):
+            arrow = int(u * (2.2 if side else 1.8))
+            cw = (area.w - arrow) // 2 if side else area.w
+            ch_max = area.h if side else (area.h - arrow) / 2
+            sz = S.lead
+            while True:
+                b0 = self._card(b_lab, b_text, cw, sz, old=True, marked=None)
+                a0 = self._card(a_lab, a_text, cw, sz, old=False, marked=None)
+                ok = max(b0.h, a0.h) <= ch_max and not b0.meta["broke"] and not a0.meta["broke"]
+                if ok or sz <= S.body_min:
+                    return ok, arrow, cw, sz, b0, a0
+                sz -= 2
+
+        # 가로는 좌우, 세로는 위아래가 기본 — 세로에서 위아래로 안 들어가면 좌우로
+        side = not self.g.portrait
+        ok, arrow, cw, sz, b0, a0 = fit(side)
+        if not ok and not side:
+            ok2, *rest = fit(True)
+            if ok2:
+                side, ok = True, True
+                arrow, cw, sz, b0, a0 = rest
+        if not ok:
             self.warn("조문이 길어 화면을 넘칩니다 — 바뀐 부분 앞뒤만 짧게 인용하세요.")
         b1 = self._card(b_lab, b_mark, cw, sz, old=True, marked=True) if self.changed else b0
         a1 = self._card(a_lab, a_mark, cw, sz, old=False, marked=True) if self.changed else a0
         s_b, s_a = self.step_of["before"], self.step_of["after"]
         s_hl = self.step_of.get("hl")
-        if self.g.portrait:
-            ch = max(b0.h, a0.h)
+        if not side:
             total = b0.h + arrow + a0.h
             y = vcenter(total, area, 0.4)
             bx, by = area.x, y
             ax, ay = area.x, y + b0.h + arrow
-            ar = D.icon_arrow(int(arrow - u * 0.6), max(6, u // 4), pal.accent, "down")
+            ar = D.icon_arrow(int(arrow - u * 0.5), max(6, u // 4), pal.accent, "down")
             arx, ary = area.cx - ar.width / 2, by + b0.h + (arrow - ar.height) / 2
             enter_ar = "wipe_down"
         else:
@@ -1705,17 +1783,54 @@ class Diff(SceneRenderer):
             y = vcenter(ch, area, 0.4)
             bx, by = area.x, y
             ax, ay = area.x + cw + arrow, y
-            ar = D.icon_arrow(int(arrow - u * 0.6), max(6, u // 4), pal.accent, "right")
+            ar = D.icon_arrow(int(arrow - u * 0.5), max(6, u // 4), pal.accent, "right")
             arx, ary = area.x + cw + (arrow - ar.width) / 2, y + ch / 2 - ar.height / 2
             enter_ar = "wipe"
         bkeys = {s_hl: Key(sprite=b1, dur=0.45)} if s_hl is not None else {}
         akeys = {s_hl: Key(sprite=a1, dur=0.45, delay=0.2)} if s_hl is not None else {}
         self.add(b0, bx, by, show=s_b, enter="rise", z=1, keys=bkeys)
         self.add(D.plain(ar), arx, ary, show=s_a, enter=enter_ar, dur=0.4, z=1)
-        self.add(a0, ax, ay, show=s_a, enter="rise" if self.g.portrait else "left", delay=0.25 if s_a == s_b else 0.1, z=1, keys=akeys)
+        self.add(a0, ax, ay, show=s_a, enter="left" if side else "rise", delay=0.25 if s_a == s_b else 0.1, z=1, keys=akeys)
         if self.eff:
             self._timeline(Box(box.x, int(box.b - tl_h), box.w, tl_h), self.step_of["tl"])
         place_basis(self, show=0, delay=0.6)
+
+    def _timeline_layout(self, w: int) -> tuple[int, list[tuple[float, Image.Image, bool, Any]], float]:
+        """타임라인 표지들: [(x(상자 왼쪽 기준), 이름표, 위쪽?, 색)], 전체 높이, 선 높이(위 기준).
+
+        이름표가 가로로 안 겹치면 모두 선 위 한 줄, 겹치면 시험일 이름표를 선 아래로 내린다.
+        """
+        S, pal, u = self.g.s, self.pal, self.g.unit
+        info = exam_info(self.ctx.cfg)
+        show_exam = self.p.get("show_exam", True) is not False
+        exam_d = parse_date(self.p.get("exam_date")) or info["next_exam_date"]
+        marks = [(self.eff, f"{dot_date(self.eff)} 시행", pal.accent, True)]
+        if show_exam and exam_d:
+            rnd = info.get("round")
+            marks.append((exam_d, f"{'제' + str(rnd) + '회 ' if rnd else ''}시험 {dot_date(exam_d)}", pal.primary, False))
+        lo, hi = min(m[0] for m in marks), max(m[0] for m in marks)
+        x0, x1 = w * 0.16, w * 0.84
+
+        def xof(d: date) -> float:
+            return (x0 + x1) / 2 if hi == lo else x0 + (x1 - x0) * (d - lo).days / (hi - lo).days
+
+        out = []
+        for d, text, col, main in marks:
+            lp = pill(self, text, size=int(S.small * 0.85), fill=col if main else pal.surface, color=D.WHITE if main else col,
+                      outline=None if main else col, width=0 if main else 3)
+            out.append([xof(d), lp, True, col])
+        spans = [(max(0.0, min(w - lp.width, x - lp.width / 2)), lp.width) for x, lp, _, _ in out]
+        if len(out) == 2 and not (spans[0][0] + spans[0][1] + u * 0.5 <= spans[1][0] or spans[1][0] + spans[1][1] + u * 0.5 <= spans[0][0]):
+            out[1][2] = False                       # 겹치면 시험일은 선 아래
+        ph = max(lp.height for _, lp, _, _ in out)
+        dot = int(u * 1.3)
+        above = ph + u * 0.4
+        below = (u * 0.4 + ph) if any(not a for _, _, a, _ in out) else 0
+        line_y = above + dot / 2
+        return int(above + dot + below), [tuple(o) for o in out], line_y
+
+    def _timeline_height(self) -> int:
+        return self._timeline_layout(self.content().w)[0]
 
     def _card(self, label: str, text: str, w: int, sz: int, *, old: bool, marked: bool | None) -> Sprite:
         S, pal, u = self.g.s, self.pal, self.g.unit
@@ -1737,9 +1852,9 @@ class Diff(SceneRenderer):
             D.paste(im, lb.img, pad - lb.ox, (band_h - lb.h) / 2 - lb.oy)
             D.paste(im, tb.img, pad - tb.ox, band_h + pad - tb.oy)
         else:
-            lp = pill(self, label, size=int(S.small * 0.9), fill=lab_fill, color=D.WHITE)
+            lp = pill(self, label, size=int(S.small * 0.82), fill=lab_fill, color=D.WHITE)
             ov = lp.height // 2
-            H = int(ov + pad * 0.6 + ov + tb.h + pad)
+            H = int(ov + pad * 0.4 + ov + tb.h + pad * 0.8)
             im = D.blank(w, H)
             if v == 2:
                 fill = D.mix(pal.surface, pal.bg, 0.6) if old else pal.surface
@@ -1748,44 +1863,28 @@ class Diff(SceneRenderer):
                 fill, outline, bw = pal.surface, pal.line, 2
             D.paste(im, D.rounded(w, H - ov, u, fill, outline=outline, width=bw), 0, ov)
             D.paste(im, lp, pad, 0)
-            D.paste(im, tb.img, pad - tb.ox, ov + ov + pad * 0.6 - tb.oy)
+            D.paste(im, tb.img, pad - tb.ox, ov + ov + pad * 0.4 - tb.oy)
         sp = D.shadowed(im, blur=12, offset=(0, 5), alpha=0.06 if old else 0.14)
         sp.meta["broke"] = tb.broke
         return sp
 
     def _timeline(self, b: Box, st: int) -> None:
-        S, pal, u = self.g.s, self.pal, self.g.unit
-        info = exam_info(self.ctx.cfg)
-        show_exam = self.p.get("show_exam", True) is not False
-        exam_d = parse_date(self.p.get("exam_date")) or info["next_exam_date"]
-        marks = [(self.eff, f"{dot_date(self.eff)} 시행", pal.accent, True)]
-        if show_exam and exam_d:
-            rnd = info.get("round")
-            marks.append((exam_d, f"{'제' + str(rnd) + '회 ' if rnd else ''}시험 {dot_date(exam_d)}", pal.primary, False))
-        lo = min(m[0] for m in marks)
-        hi = max(m[0] for m in marks)
-        x0, x1 = b.x + b.w * 0.16, b.r - b.w * 0.16
-        line_y = b.y + b.h / 2
+        pal, u = self.pal, self.g.unit
+        _, marks, ly = self._timeline_layout(b.w)
+        line_y = b.y + ly
         th = max(8, u // 3)
+        dot = int(u * 1.3)
         self.add(D.plain(D.rounded(b.w, th, th // 2, pal.line)), b.x, line_y - th / 2, show=st, enter="wipe", dur=0.55, z=1)
-
-        def xof(d: date) -> float:
-            if hi == lo:
-                return (x0 + x1) / 2
-            return x0 + (x1 - x0) * (d - lo).days / (hi - lo).days
-
-        ex = xof(self.eff)
-        self.add(D.plain(D.rounded(int(b.r - ex), th, th // 2, pal.accent)), ex, line_y - th / 2, show=st, enter="wipe", delay=0.45, dur=0.5, z=1)
-        for k, (d, text, col, above) in enumerate(marks):
-            x = xof(d)
-            dot = int(u * 1.3)
+        ex = b.x + marks[0][0]
+        self.add(D.plain(D.rounded(int(b.r - ex), th, th // 2, pal.accent)), ex, line_y - th / 2, show=st, enter="wipe", delay=0.45, dur=0.5,
+                 z=1)
+        for k, (x, lp, above, col) in enumerate(marks):
+            x = b.x + x
             self.add(D.plain(D.ellipse(dot, dot, D.WHITE, outline=col, width=max(5, dot // 4))), x - dot / 2, line_y - dot / 2, show=st,
                      enter="pop", delay=0.6 + 0.3 * k, z=3)
-            lp = pill(self, text, size=int(S.small * 0.92), fill=col if above else pal.surface, color=D.WHITE if above else col,
-                      outline=None if above else col, width=0 if above else 3)
             lx = max(b.x, min(b.r - lp.width, x - lp.width / 2))
-            ly = line_y - dot / 2 - u * 0.4 - lp.height if above else line_y + dot / 2 + u * 0.4
-            self.add(D.plain(lp), lx, ly, show=st, enter="rise" if above else "fade", delay=0.75 + 0.3 * k, z=3)
+            yy = line_y - dot / 2 - u * 0.4 - lp.height if above else line_y + dot / 2 + u * 0.4
+            self.add(D.plain(lp), lx, yy, show=st, enter="rise" if above else "fade", delay=0.75 + 0.3 * k, z=3)
 
 
 # ================================================================ ranking
@@ -1842,9 +1941,9 @@ class Ranking(SceneRenderer):
         items = [(str(i["label"]), _num(i["value"]), str(i.get("note") or "")) for i in self.p["items"]]
         M = len(items)
         C = self.content()
-        box = header(self, C)
         title = str(self.p.get("title") or "")
         note = str(self.p.get("note") or "")
+        box = own_header(self, C, has_own_title=bool(title))
         y = box.y
         if title:
             tt = self.text(title, role="heavy", size=S.h2, min_size=S.body_min, max_w=box.w, max_lines=2, emph=pal.primary)
@@ -1867,7 +1966,7 @@ class Ranking(SceneRenderer):
             bar_h = int(sz * (0.8 if stacked else 1.0))
             rows_h = [int(max(rb, lb.h + sz * 0.2 + bar_h)) if stacked else int(max(rb, lb.h, bar_h)) for lb in labs]
             gap = int(sz * (0.45 if v != 2 else 0.3))
-            pads = int(sz * 0.35) if v == 2 else 0
+            pads = int(sz * 0.2) if v == 2 else 0
             total = sum(h + 2 * pads for h in rows_h) + gap * (M - 1)
             if (total <= area.h and not any(lb.broke for lb in labs)) or sz <= S.small:
                 break

@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 
 import { buildPack, checkForUpdate, freePool, loadFromCache, loadSeed, resolveRelative, subjectUrls, type PackIO } from '../pack/sync';
 import type { Item, Manifest } from '../pack/types';
-import { checkItem, compareVersions, isSafeRelativePath, normalizeAnswer, validateManifest, validateSubjectFile } from '../pack/validate';
+import { checkItem, compareVersions, deckItemIds, isSafeRelativePath, normalizeAnswer, validateManifest, validateSubjectFile } from '../pack/validate';
 
 const enc = (s: string) => new Uint8Array(Buffer.from(s, 'utf-8'));
 const sha = (b: Uint8Array) => createHash('sha256').update(b).digest('hex');
@@ -108,6 +108,16 @@ describe('매니페스트 검증', () => {
 
   test('decks 는 배열 또는 {item_ids} 객체', () => {
     expect(validateManifest({ ...ok, decks: { a1: ['c1'], a2: { title: 't', item_ids: ['c1'] } } }).ok).toBe(true);
+  });
+
+  test('문제은행 내보내기 형식(decks 배열)을 asset_id 객체로 바꿔 읽는다', () => {
+    const r = validateManifest({
+      ...ok,
+      decks: [{ asset_id: '2026W42-S03', week: '2026-W42', kind: 'short', items: ['c1', 'c2'] }],
+    });
+    expect(r.ok).toBe(true);
+    expect(deckItemIds(r.value!.decks!['2026W42-S03'])).toEqual(['c1', 'c2']);
+    expect(validateManifest({ ...ok, decks: [{ asset_id: 'x' }] }).ok).toBe(false);
   });
 
   test('안전한 상대 경로', () => {
