@@ -41,11 +41,7 @@ class TextFx:
     head: str
     hashtags: frozenset[str]
     tags: frozenset[str]
-    voice_hashes: list[str] = field(default_factory=list)
-    voice_missing: list[str] = field(default_factory=list)
-
-    def phrase_set(self) -> set[str]:
-        return {h for h, n in zip(self.hashes, self.norm) if len(n) >= MIN_SENT}
+    voice_hashes: list[str] = field(default_factory=list)   # 녹음 파일 내용 해시(없는 파일은 렌더가 먼저 막는다)
 
 
 def sentence_keys(doc: Doc) -> tuple[list[str], list[str]]:
@@ -114,19 +110,14 @@ def text_fx(doc: Doc, fixed: set[str], fixed_desc: set[str], th: Thresholds) -> 
     desc = "".join(T.normalize(x, numbers=True) for x in T.description_lines(doc.description)
                    if T.normalize(x, numbers=True) not in fixed_desc)
     desc_sh = T.shingles(desc)
-    voice_hashes, voice_missing = [], []
-    for p in doc.voice_files:
-        if p.exists():
-            voice_hashes.append(file_hash(p))
-        else:
-            voice_missing.append(str(p))
+    voice_hashes = [file_hash(p) for p in doc.voice_files if p.exists()]
     return TextFx(
         norm=norm, hashes=hashes, candidates=phrase_candidates(doc, th), body=body, sh=sh, sh_num=sh_num,
         mh=T.minhash(sh), mh_num=T.minhash(sh_num),
         desc_sh=desc_sh, desc_mh=T.minhash(desc_sh, T.DESC_NUM_PERM), desc_len=len(desc),
         title_grams=T.title_grams(doc.title), head=T.title_head(doc.title, int(th.opt("title_prefix_words"))),
         hashtags=T.tag_set(doc.hashtags), tags=T.tag_set(doc.tags),
-        voice_hashes=voice_hashes, voice_missing=voice_missing,
+        voice_hashes=voice_hashes,
     )
 
 

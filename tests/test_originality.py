@@ -402,3 +402,15 @@ def test_cli_exit_codes_and_only_merge(root, capsys):
 
 def test_empty_week_is_error(root):
     assert studio_main(["check", "originality", "--week", WEEK]) == 1
+
+
+def test_render_stage_without_render_files(root):
+    """렌더 단계인데 렌더 기록이 없으면 차단 — 단, 그 종류를 올릴 플랫폼이 모두 꺼져 있으면 판정하지 않는다."""
+    put({"title": "표 있는 글", "keyword": "필기", "body_markdown": "## 비교\n\n| 방법 | 장점 |\n|---|---|\n| 손 | 이해 |\n"}, 1, kind="blog")
+    report, _, _ = run_check(WEEK, "render", cfg=cfg())
+    a = asset(report, "2026W42-B01")
+    assert metric(a, "render_missing").verdict == "block"
+    assert any("render blog --week 2026-W42 --only 2026W42-B01" in f for f in a.fixes)
+    off = Config.model_validate({"platforms": {"tistory": {"enabled": False}}})
+    report, _, _ = run_check(WEEK, "render", cfg=off)
+    assert metric(asset(report, "2026W42-B01"), "render_missing").verdict == "pass"

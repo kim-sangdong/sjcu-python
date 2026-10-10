@@ -48,6 +48,8 @@ STRUCTURE_SAME = 0.9       # 결합 신호에서 '골격 같음'
 STRUCTURE_WINDOW = 14      # 골격을 비교할 과거 같은 종류 자산 수(최근 순)
 CONTENT_KINDS = ["quiz", "compare", "sequence", "timeline", "flow", "bars", "bullets", "case", "quote", "text", "image", "voice"]
 STYLE_HINT = {"longform": "bold·split·card·photo", "short": "bold·block·frame"}
+KIND_PLATFORMS = {"longform": ("youtube", "facebook"), "short": ("youtube", "instagram", "facebook", "tiktok"),
+                  "cardnews": ("instagram", "facebook"), "blog": ("tistory",)}
 
 # 장면 kind → (이어 쓰는 꼴, 끝맺는 꼴)  — 겹친 문장이 있는 장면에 맞춰 고칠 지시를 만든다
 KIND_ACTIONS: dict[str, tuple[str, str]] = {
@@ -361,8 +363,9 @@ class Checker:
         sample = ", ".join(f"'{_clip(v[0].text)}'(문장 {'·'.join(str(x.no) for x in v)})" for v in dups[:3])
         acc.add("sentence_repeat", extra / total if total else 0.0, detail=f"반복 {extra}문장 / {total}문장" + (f": {sample}" if sample else ""),
                 fix=f"{me} 안에서 같은 문장이 되풀이됨: {sample} — 한 번만 남기고 나머지는 새 정보(예시·근거·수치)로 바꿀 것")
-        # 다른 자산과 똑같은 문장(고정 문구 제외)
-        elig = [(l, h) for l, h, n in zip(d.lines, tx.hashes, tx.norm) if len(n) >= MIN_REUSE_SENT and h not in self.fixed]
+        # 다른 자산과 똑같은 본문 문장(틀 장면·고정 문구 제외 — 인트로·CTA 공유는 고정 문구 비율로 본다)
+        body_ids = {id(l) for l in tx.body}
+        elig = [(l, h) for l, h, n in zip(d.lines, tx.hashes, tx.norm) if id(l) in body_ids and len(n) >= MIN_REUSE_SENT]
         partners: dict[str, list[Line]] = {}
         for o in self.earlier(d):
             oh = set(self.tx[o.asset_id].hashes)
@@ -628,6 +631,9 @@ class Checker:
         vis = self.vis.get(d.asset_id)
         cmd = {"longform": "video", "short": "video", "cardnews": "cardnews", "blog": "blog"}[d.kind]
         if vis is None or vis.missing:
+            if not any(getattr(getattr(self.cfg.platforms, pf, None), "enabled", True) for pf in KIND_PLATFORMS[d.kind]):
+                acc.add("render_missing", 0, detail="렌더 결과 없음 — 이 종류를 올릴 플랫폼이 모두 꺼져 있어 판정하지 않음")
+                return
             what = ", ".join(vis.missing) if vis else "manifest"
             acc.add("render_missing", 1, detail=f"없음: {what}",
                     fix=f"{me}의 렌더 결과가 없음({what}) — `python -m studio render {cmd} --week {self.week} --only {d.asset_id}` 로 렌더한 뒤 다시 검사할 것")
@@ -656,7 +662,7 @@ class Checker:
             hint = (f"thumbnail.style 을 다른 것({STYLE_HINT[d.kind]})으로 바꾸거나 " if d.kind in STYLE_HINT else "")
             acc.add("thumb_dist", best[0], detail=f"{self._with(best[1])}{what} 256비트 pHash 해밍거리(원본·색 반전·윤곽선 중 최소)" if best[1] else "비교 대상 없음",
                     compared_with=best[1],
-                    fix=lambda: (f"{what}이 {josa(self.label(best[1]), '와/과')} 거의 같음(거리 {best[0]}/256) — 글자만 바꾸지 말고 {hint}"
+                    fix=lambda: (f"{josa(what, '이/가')} {josa(self.label(best[1]), '와/과')} 거의 같음(거리 {best[0]}/256) — 글자만 바꾸지 말고 {hint}"
                                  f"배치·색·핵심 그림을 바꿀 것"))
         # 화면 소재 재사용
         if vis.frames is not None and d.kind in ("longform", "short", "cardnews"):

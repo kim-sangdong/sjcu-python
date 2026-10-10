@@ -169,8 +169,8 @@ LABELS: dict[str, str] = {
 
 # 지표가 아닌 검사 옵션(기본값). cfg.originality 의 같은 키로 덮어쓴다.
 OPTIONS: dict[str, Any] = {
-    "boilerplate": [],                 # 허용 상용구 문장(고정 문구로 보고 본문 비교에서 뺀다)
-    "fixed_min_assets": 3,             # 이 수 이상의 자산에 나오는 문장 = 고정 문구
+    "boilerplate": [],                 # 허용 상용구 문장(고정 문구로 보고 본문 비교에서 뺀다 — 고정 문구 비율에는 들어간다)
+    "fixed_min_assets": 3,             # 고정 문구 후보 자리(틀 장면 문장·첫·끝 문장)에 이 수 이상의 자산이 쓴 문장 = 고정 문구
     "require_voice": False,            # True: 사람 녹음 요건을 차단으로
     "title_prefix_words": 3,
     "title_prefix_window": 5,          # 직전 몇 편과 비교할지
