@@ -1,0 +1,26 @@
+{
+  "name": "hamjeong-note",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:ci": "jest --ci",
+    "doctor": "expo-doctor",
+    "export:android": "expo export --platform android"
+  },
+  "dependencies": {
+    "expo": "~57.0.27",
+    "expo-router": "~57.0.25",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  }
+}

@@ -180,10 +180,10 @@ def graph_call(
         if token_in == "header":
             headers["Authorization"] = f"OAuth {token}"
         elif token_in == "auto":
-            if method == "GET" or (data is None and body is None):
+            if method == "GET" or body is not None:
                 params["access_token"] = token
             else:
-                data = {**(data or {}), "access_token": token}
+                data = {**(data or {}), "access_token": token}   # POST 는 본문에(주소·로그에 안 남게)
     secrets = [token]
     attempts = 1 + (GET_RETRIES if method == "GET" else 0)
     last: GraphError | None = None
