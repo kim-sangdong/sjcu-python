@@ -1,6 +1,7 @@
 """`python -m studio <명령>` 진입점.
 
 각 하위 모듈은 `register(subparsers)` 함수를 내보내고, 자기 명령을 붙인다.
+같은 묶음(render, auth, publish …)에 여러 모듈이 붙을 때는 studio.cliutil.group 을 쓴다.
 명령 처리 함수는 argparse 의 `func` 기본값으로 지정하며 종료 코드(int)를 돌려준다.
 """
 
@@ -20,6 +21,7 @@ COMMAND_MODULES = [
     "studio.blog.cli",         # render blog ...
     "studio.originality.cli",  # check originality | archive add
     "studio.publish.cli",      # publish schedule | due | ...
+    "studio.publish.auth_cli", # auth youtube | instagram | tiktok | tistory
     "studio.comments.cli",     # comments fetch | post
     "studio.analytics.cli",    # analytics collect | report
     "studio.pipeline",         # weekly prepare | finalize | status

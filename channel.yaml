@@ -1,0 +1,98 @@
+# 채널 설정 — 비밀값(토큰·키)은 여기 넣지 않는다(.env / GitHub Secrets).
+# 주제가 바뀌면 channel·app·rules 와 docs/CONTENT_GUIDE.md 만 고치면 된다.
+
+channel:
+  name: "채널 이름(미정)"
+  handle: ""
+  topic: "미정"
+  audience: ""
+  tone: "존댓말, 차분하고 정확하게, 과장 없이"
+  language: ko
+  timezone: Asia/Seoul
+
+schedule:
+  weekly_run: "SUN 12:00"         # 정기 제작 실행(KST). GitHub Actions cron 과 맞춘다.
+  longform_publish: "SUN 19:00"   # 실행 당일 롱폼 공개
+  shorts_per_week: 14             # 처음 4주는 7로 낮춰 검사기 통과율·시청 지속률을 본 뒤 올리는 것을 권장
+  shorts_times: ["12:00", "19:00"]
+  cardnews_per_week: 3
+  cardnews_days: [TUE, THU, SAT]
+  cardnews_time: "20:00"
+  blog_per_week: 3
+  blog_days: [MON, WED, FRI]
+  blog_time: "08:00"
+
+platforms:
+  youtube:
+    enabled: true
+    category_id: "27"             # Education
+    playlist_longform: null       # 재생목록 ID(PL...)를 만들면 넣는다
+    playlist_shorts: null
+    notify_subscribers: true
+    audited: false                # API 감사 통과 전: 업로드 패키지를 만들고 Studio 에서 예약 업로드
+  instagram:
+    enabled: true
+    share_reels_to_feed: true
+  facebook:
+    enabled: true
+  tiktok:
+    enabled: true
+    privacy_level: PUBLIC_TO_EVERYONE
+    audited: false                # 감사 전에는 SELF_ONLY(비공개)로만 올라간다
+  tistory:
+    enabled: true
+    blog_name: ""                 # https://<blog_name>.tistory.com
+    category: ""
+    visibility: public
+
+tts:
+  provider: google                # Google Cloud TTS(Chirp 3 HD). 월 100만 자 무료 구간
+  voice: ko-KR-Chirp3-HD-Aoede
+  speaking_rate: 0.95
+  fallback: none                  # edge-tts 는 약관상 상업 이용이 불분명 → 발행물에는 쓰지 않는다
+
+video:
+  long_size: [1920, 1080]
+  short_size: [1080, 1920]
+  fps: 30
+  short_max_seconds: 59
+  longform_target_minutes: 28
+  bgm_dir: assets/bgm
+  bgm_volume_db: -26
+  loudness_lufs: -14
+
+brand:
+  background: "#FFF8F2"
+  text: "#1A1717"
+  primary: "#8C2129"
+  accent: "#F09E6B"
+  muted: "#C7C7C7"
+  font_regular: NanumGothic.ttf
+  font_bold: NanumGothicExtraBold.ttf
+
+app:
+  name: ""
+  android_package: ""
+  ios_app_id: ""
+  play_url: ""
+  appstore_url: ""
+  link_base: ""                   # https://<project-ref>.supabase.co/functions/v1/go
+
+storage:
+  provider: supabase
+  bucket: media
+
+rules:
+  banned_phrases:
+    - 치매 예방
+    - 치매 개선
+    - 치매예방
+    - 합격 보장
+    - 100% 합격
+    - 적중
+  caution_phrases:
+    - 공식
+    - 무조건
+  disclaimer: ""
+
+originality: {}                   # 검사 임계값 덮어쓰기 (기본값은 studio/originality/thresholds.py)
